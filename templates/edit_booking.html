@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Booking{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title">Edit Appointment</h2>
+                <form method="POST" novalidate>
+
+                    <div class="mb-3">
+                        <label class="form-label">Customer Name</label>
+                        <input class="form-control" type="text" name="customer_name" value="{{ booking.customer_name }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number</label>
+                        <input class="form-control" type="text" name="phone" value="{{ booking.phone }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Appointment Time</label>
+                        <input class="form-control" type="datetime-local" name="start_time" value="{{ start_value }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Appointment Length (Minutes)</label>
+                        <input class="form-control" type="number" name="duration" value="{{ booking.duration }}" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Room</label>
+                            <select class="form-select" name="room" required>
+                                <option value="Room 1" {% if booking.room == 'Room 1' %}selected{% endif %}>Room 1</option>
+                                <option value="Room 2" {% if booking.room == 'Room 2' %}selected{% endif %}>Room 2</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Paid?</label>
+                            <select class="form-select" name="paid">
+                                <option value="yes" {% if booking.paid %}selected{% endif %}>Paid</option>
+                                <option value="no" {% if not booking.paid %}selected{% endif %}>Not Paid</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <input class="form-control" type="text" name="location" value="{{ booking.location }}" placeholder="e.g. Brighton Clinic">
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <a href="{{ url_for('calendar') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

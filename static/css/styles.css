@@ -1,0 +1,27 @@
+body {
+    background-color: #f8f9fa;
+}
+
+/* Calendar card spacing */
+#calendar.card {
+    min-height: 60vh;
+}
+
+/* Small utility tweaks */
+.lead {
+    color: #6c757d;
+}
+
+/* Keep existing custom button fallback */
+.button {
+    display: inline-block;
+    padding: 10px 16px;
+    background-color: #0d6efd;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+}
+.button:hover {
+    background-color: #0b5ed7;
+}

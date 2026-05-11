@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">Admin Login</h3>
+                <p class="text-muted small">Enter the admin password to access the calendar.</p>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, msg in messages %}
+                      <div class="alert alert-{{ category }}" role="alert">{{ msg }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input class="form-control" type="password" name="password" required>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" type="submit">Login</button>
+                        <a class="btn btn-link" href="{{ url_for('home') }}">Cancel</a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

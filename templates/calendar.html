@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h1 class="h3 mb-0">Booking Calendar</h1>
+        <p class="text-muted small mb-0">View and manage appointments</p>
+    </div>
+    <div>
+        <a href="{{ url_for('add_booking') }}" class="btn btn-success">+ Add Booking</a>
+        <button id="test-modal-btn" class="btn btn-outline-info ms-2">Test Modal</button>
+    </div>
+</div>
+
+<div id="calendar" class="card p-3 shadow-sm"></div>
+
+<!-- Booking details modal -->
+<div class="modal fade" id="bookingDetailsModal" tabindex="-1" aria-labelledby="bookingDetailsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bookingDetailsLabel">Booking Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Customer</dt>
+                    <dd class="col-sm-8" id="bd-customer">-</dd>
+
+                    <dt class="col-sm-4">Phone</dt>
+                    <dd class="col-sm-8" id="bd-phone">-</dd>
+
+                    <dt class="col-sm-4">Room</dt>
+                    <dd class="col-sm-8" id="bd-room">-</dd>
+
+                    <dt class="col-sm-4">Location</dt>
+                    <dd class="col-sm-8" id="bd-location">-</dd>
+
+                    <dt class="col-sm-4">Start</dt>
+                    <dd class="col-sm-8" id="bd-start">-</dd>
+
+                    <dt class="col-sm-4">End</dt>
+                    <dd class="col-sm-8" id="bd-end">-</dd>
+
+                    <dt class="col-sm-4">Duration</dt>
+                    <dd class="col-sm-8" id="bd-duration">-</dd>
+
+                    <dt class="col-sm-4">Paid</dt>
+                    <dd class="col-sm-8" id="bd-paid">-</dd>
+                </dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="bd-delete-btn" class="btn btn-danger me-auto">Delete</button>
+                <a href="#" id="bd-edit-link" class="btn btn-primary">Edit Booking</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+    <!-- Use external calendar JS (contains the eventClick handler to populate the modal) -->
+    <script src="{{ url_for('static', filename='js/calaendar.js') }}"></script>
+    
+        <script>
+            // Test button to open modal with sample data so we can confirm
+            // modal + Bootstrap JS are loaded and working.
+            document.addEventListener('DOMContentLoaded', function() {
+                var btn = document.getElementById('test-modal-btn');
+                if (!btn) return;
+                btn.addEventListener('click', function() {
+                    document.getElementById('bd-customer').textContent = 'Test User';
+                    document.getElementById('bd-phone').textContent = '0123456789';
+                    document.getElementById('bd-room').textContent = 'Room 1';
+                    document.getElementById('bd-location').textContent = 'Test Location';
+                    document.getElementById('bd-start').textContent = new Date().toLocaleString();
+                    document.getElementById('bd-end').textContent = new Date().toLocaleString();
+                    document.getElementById('bd-duration').textContent = '30 mins';
+                    document.getElementById('bd-paid').textContent = 'Yes';
+                    var bookingModalEl = document.getElementById('bookingDetailsModal');
+                    var bookingModal = new bootstrap.Modal(bookingModalEl);
+                    bookingModal.show();
+                });
+            });
+        </script>
+
+{% endblock %}

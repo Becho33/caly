@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h1 class="card-title">Booking System</h1>
+                <p class="lead">Manage appointments, rooms and locations quickly.</p>
+
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{{ url_for('calendar') }}" class="btn btn-primary btn-lg">Open Calendar</a>
+                    <a href="{{ url_for('add_booking') }}" class="btn btn-outline-secondary btn-lg">Add Booking</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
