@@ -126,7 +126,54 @@ def logout():
 @app.route('/calendar')
 @login_required
 def calendar():
-    return render_template("calendar.html")
+
+    today = datetime.now()
+
+    # Find last Sunday
+    days_since_sunday = (today.weekday() + 1) % 7
+    start_of_week = today - timedelta(days=days_since_sunday)
+
+    # Set to midnight
+    start_of_week = start_of_week.replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0
+    )
+
+    # Next Saturday night
+    end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59)
+
+    bookings = Booking.query.filter(
+        Booking.start_time >= start_of_week,
+        Booking.start_time <= end_of_week
+    ).all()
+
+    duration_totals = {}
+
+    total_minutes = 0
+
+    for booking in bookings:
+
+        duration = booking.duration
+
+        if duration in duration_totals:
+            duration_totals[duration] += 1
+        else:
+            duration_totals[duration] = 1
+
+        total_minutes += duration
+
+    total_hours = round(total_minutes / 60, 2)
+
+    return render_template(
+        "calendar.html",
+        duration_totals=duration_totals,
+        total_minutes=total_minutes,
+        total_hours=total_hours,
+        start_of_week=start_of_week,
+        end_of_week=end_of_week
+    )
 
 
 # Add booking page
