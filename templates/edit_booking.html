@@ -35,15 +35,23 @@
                         <div class="mb-3 col-md-6">
                             <label class="form-label">Room</label>
                             <select class="form-select" name="room" required>
-                                <option value="Room 1" {% if booking.room == 'Room 1' %}selected{% endif %}>Room 1</option>
-                                <option value="Room 2" {% if booking.room == 'Room 2' %}selected{% endif %}>Room 2</option>
+                                <option value="Not assigned yet" {% if booking.room == 'Not assigned yet' %}selected{% endif %}>Not assigned yet</option>
+                                <option value="Jules" {% if booking.room == 'Jules' %}selected{% endif %}>Jules</option>
+                                <option value="Aly" {% if booking.room == 'Aly' %}selected{% endif %}>Aly</option>
+                                <option value="Amira" {% if booking.room == 'Amira' %}selected{% endif %}>Amira</option>
+                                <option value="Echo" {% if booking.room == 'Echo' %}selected{% endif %}>Echo</option>
+                                <option value="Suprani" {% if booking.room == 'Suprani' %}selected{% endif %}>Suprani</option>
+                                <option value="Rose" {% if booking.room == 'Rose' %}selected{% endif %}>Rose</option>
+                                <option value="Daisy" {% if booking.room == 'Daisy' %}selected{% endif %}>Daisy</option>
+                                <option value="Lay" {% if booking.room == 'Lay' %}selected{% endif %}>Lay</option>
                             </select>
                         </div>
                         <div class="mb-3 col-md-6">
                             <label class="form-label">Paid?</label>
                             <select class="form-select" name="paid">
-                                <option value="yes" {% if booking.paid %}selected{% endif %}>Paid</option>
-                                <option value="no" {% if not booking.paid %}selected{% endif %}>Not Paid</option>
+                                    <option value="yes" {% if booking.paid %}selected{% endif %}>Paid</option>
+                                    <option value="no" {% if not booking.paid %}selected{% endif %}>Not Paid</option>
+                                    <option value="group">Group</option>
                             </select>
                         </div>
                     </div>

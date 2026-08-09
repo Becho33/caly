@@ -53,6 +53,22 @@ document.addEventListener('DOMContentLoaded', function () {
         bookingModal.show();
     }
 
+    // helper: map therapist/room names to fixed colors
+    function getColorForRoom(name) {
+        var map = {
+            'Jules': '#FF6B6B',
+            'Aly': '#6BCB77',
+            'Amira': '#4D96FF',
+            'Echo': '#FFD93D',
+            'Suprani': '#845EC2',
+            'Rose': '#FF9CEE',
+            'Daisy': '#FFA15C',
+            'Lay': '#00C9A7',
+            'Not assigned yet': '#9E9E9E'
+        };
+        return map[name] || '#777777';
+    }
+
     // expose calendar variable to outer scope for refetching after delete
     window._bookingCalendar = new FullCalendar.Calendar(calendarEl, {
 
@@ -82,21 +98,12 @@ document.addEventListener('DOMContentLoaded', function () {
             showBookingModal(info.event);
         },
 
-        // ✅ THIS WAS BREAKING YOUR CODE (now fixed)
+        // style events by therapist/room name
         eventDidMount: function(info) {
-
-            // style by room
-            if (info.event.extendedProps.room === "Room 1") {
-                info.el.style.backgroundColor = "#4CAF50";
-            }
-
-            if (info.event.extendedProps.room === "Room 2") {
-                info.el.style.backgroundColor = "#2196F3";
-            }
-
-            if (info.event.extendedProps.paid === false) {
-                info.el.style.border = "2px solid red";
-            }
+            var room = info.event.extendedProps.room || '';
+            info.el.style.backgroundColor = getColorForRoom(room);
+            info.el.style.color = '#ffffff';
+            info.el.style.border = info.event.extendedProps.paid === false ? '2px solid red' : '1px solid #333';
 
             // make event element explicitly clickable and attach fallback click
             try {

@@ -13,8 +13,6 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <!-- CSRF token for AJAX -->
-    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
 
@@ -62,23 +60,6 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 
     {% block scripts %}{% endblock %}
-
-    <script>
-        // attach CSRF token to all fetch requests if available
-        (function() {
-            var token = document.querySelector('meta[name="csrf-token"]') && document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            if (!token) return;
-            var _fetch = window.fetch;
-            window.fetch = function(resource, init) {
-                init = init || {};
-                init.headers = init.headers || {};
-                if (!init.headers['X-CSRFToken'] && !init.headers['X-CSRF-Token']) {
-                    init.headers['X-CSRFToken'] = token;
-                }
-                return _fetch(resource, init);
-            };
-        })();
-    </script>
 
 </body>
 </html>

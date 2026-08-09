@@ -15,22 +15,6 @@
     </div>
 </div>
 
-<div class="card p-3 mb-3">
-
-    <h4>Booking Totals</h4>
-
-    {% for duration, count in duration_totals.items() %}
-        <p>{{ duration }} mins : {{ count }} bookings</p>
-    {% endfor %}
-
-    <hr>
-
-    <p><strong>Total Minutes:</strong> {{ total_minutes }}</p>
-
-    <p><strong>Total Hours:</strong> {{ total_hours }}</p>
-
-</div>
-
 <div id="calendar" class="card p-3 shadow-sm"></div>
 
 <!-- Booking details modal -->
@@ -75,28 +59,6 @@
             </div>
         </div>
     </div>
-</div>
-<div class="card p-3 mb-3">
-
-    <h4>Weekly Totals</h4>
-
-    <p>
-        Week:
-        {{ start_of_week.strftime('%d %b') }}
-        -
-        {{ end_of_week.strftime('%d %b') }}
-    </p>
-
-    {% for duration, count in duration_totals.items() %}
-        <p>{{ duration }} mins : {{ count }} bookings</p>
-    {% endfor %}
-
-    <hr>
-
-    <p><strong>Total Minutes:</strong> {{ total_minutes }}</p>
-
-    <p><strong>Total Hours:</strong> {{ total_hours }}</p>
-
 </div>
 
 {% endblock %}

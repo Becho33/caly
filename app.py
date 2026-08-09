@@ -1,10 +1,9 @@
 from flask import Flask, render_template, request, redirect, jsonify, session, url_for, flash
 import os
 from functools import wraps
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_wtf import CSRFProtect
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -12,23 +11,15 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bookings.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Secret key for session (development). You can override with env var.
+# Secret key for session (development). You can override with env var.
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key')
-app.config['WTF_CSRF_ENABLED'] = False
 
-# Admin password (plain fallback) or hashed via ADMIN_PASSWORD_HASH env var
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Whothefuckisalice!')
-ADMIN_PASSWORD_HASH = os.environ.get('ADMIN_PASSWORD_HASH')
+# Admin password (can be overridden with ADMIN_PASSWORD env var)
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'wearehealers')
 
-# If no hashed password provided, derive one from ADMIN_PASSWORD for
-# backward compatibility (development only)
-if ADMIN_PASSWORD_HASH:
-    ADMIN_HASH = ADMIN_PASSWORD_HASH
-else:
-    ADMIN_HASH = generate_password_hash(ADMIN_PASSWORD)
-
-# CSRF protection
-csrf = CSRFProtect()
-csrf.init_app(app)
+# Simple in-memory tracking of failed login attempts by IP address.
+# Structure: { ip: { 'count': int, 'locked_until': datetime or None } }
+LOGIN_ATTEMPTS = {}
 
 db = SQLAlchemy(app)
 
@@ -47,14 +38,6 @@ class Booking(db.Model):
 
     room = db.Column(db.String(20))  # NEW FIELD
     location = db.Column(db.String(100))  # NEW FIELD
-
-
-# Lockout model to persist failed login attempts per IP
-class Lockout(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    ip = db.Column(db.String(100), unique=True, nullable=False)
-    count = db.Column(db.Integer, default=0)
-    locked_until = db.Column(db.DateTime, nullable=True)
 
 
 # Home page
@@ -76,41 +59,42 @@ def login_required(f):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     client_ip = request.remote_addr or 'unknown'
-    # use Lockout DB model for attempts
-    lock = Lockout.query.filter_by(ip=client_ip).first()
-    if lock and lock.locked_until and datetime.utcnow() < lock.locked_until:
-        remaining = lock.locked_until - datetime.utcnow()
-        mins = int(remaining.total_seconds() // 60) + 1
-        flash(f'Too many failed attempts. Try again in {mins} minutes.', 'danger')
-        return render_template('login.html')
+
+    # check lockout
+    attempt = LOGIN_ATTEMPTS.get(client_ip, {'count': 0, 'locked_until': None})
+    if attempt.get('locked_until'):
+        if datetime.utcnow() < attempt['locked_until']:
+            remaining = attempt['locked_until'] - datetime.utcnow()
+            mins = int(remaining.total_seconds() // 60) + 1
+            flash(f'Too many failed attempts. Try again in {mins} minutes.', 'danger')
+            return render_template('login.html')
+        else:
+            # lock expired
+            LOGIN_ATTEMPTS[client_ip] = {'count': 0, 'locked_until': None}
 
     if request.method == 'POST':
         pw = request.form.get('password', '')
-        if check_password_hash(ADMIN_HASH, pw):
+        if pw == ADMIN_PASSWORD:
             session['logged_in'] = True
-            # reset lockout
-            if lock:
-                lock.count = 0
-                lock.locked_until = None
-                db.session.commit()
+            LOGIN_ATTEMPTS[client_ip] = {'count': 0, 'locked_until': None}
             flash('Logged in successfully.', 'success')
             return redirect(url_for('calendar'))
         else:
-            # increment or create lock record
-            if not lock:
-                lock = Lockout(ip=client_ip, count=1)
-                db.session.add(lock)
-            else:
-                lock.count = (lock.count or 0) + 1
+            # increment attempts
+            attempt = LOGIN_ATTEMPTS.get(client_ip, {'count': 0, 'locked_until': None})
+            attempt['count'] = attempt.get('count', 0) + 1
+            LOGIN_ATTEMPTS[client_ip] = attempt
 
-            remaining = max(0, 3 - lock.count)
+            remaining = max(0, 3 - attempt['count'])
             if remaining <= 0:
-                lock.locked_until = datetime.utcnow() + timedelta(minutes=30)
-                flash('Too many failed attempts. You are locked out for 30 minutes.', 'danger')
+                # lock for 1 minute
+                lock_until = datetime.utcnow() + timedelta(minutes=1)
+                attempt['locked_until'] = lock_until
+                LOGIN_ATTEMPTS[client_ip] = attempt
+                flash('Too many failed attempts. You are locked out for 1 minute.', 'danger')
             else:
                 flash(f'Invalid password. {remaining} attempts remaining.', 'warning')
 
-            db.session.commit()
             return render_template('login.html')
 
     return render_template('login.html')
@@ -126,54 +110,7 @@ def logout():
 @app.route('/calendar')
 @login_required
 def calendar():
-
-    today = datetime.now()
-
-    # Find last Sunday
-    days_since_sunday = (today.weekday() + 1) % 7
-    start_of_week = today - timedelta(days=days_since_sunday)
-
-    # Set to midnight
-    start_of_week = start_of_week.replace(
-        hour=0,
-        minute=0,
-        second=0,
-        microsecond=0
-    )
-
-    # Next Saturday night
-    end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59)
-
-    bookings = Booking.query.filter(
-        Booking.start_time >= start_of_week,
-        Booking.start_time <= end_of_week
-    ).all()
-
-    duration_totals = {}
-
-    total_minutes = 0
-
-    for booking in bookings:
-
-        duration = booking.duration
-
-        if duration in duration_totals:
-            duration_totals[duration] += 1
-        else:
-            duration_totals[duration] = 1
-
-        total_minutes += duration
-
-    total_hours = round(total_minutes / 60, 2)
-
-    return render_template(
-        "calendar.html",
-        duration_totals=duration_totals,
-        total_minutes=total_minutes,
-        total_hours=total_hours,
-        start_of_week=start_of_week,
-        end_of_week=end_of_week
-    )
+    return render_template("calendar.html")
 
 
 # Add booking page
