@@ -15,7 +15,26 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key')
 
 # Admin password (can be overridden with ADMIN_PASSWORD env var)
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'wearehealers')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Weareateam33!')
+
+# Password for the separate staff log page.
+STAFF_LOG_PASSWORD = os.environ.get('STAFF_LOG_PASSWORD', 'adminrus')
+
+# Default hourly rate used for estimated weekly earnings.
+HOURLY_RATE = float(os.environ.get('HOURLY_RATE', '30'))
+
+TEAM_QUOTES = [
+    "Great teams turn individual effort into collective magic.",
+    "When we work together, every appointment feels more personal.",
+    "A strong team makes every day flow with care and clarity.",
+    "Together we build trust, one booking at a time.",
+    "Shared purpose turns busy days into meaningful progress.",
+    "The best results come when every voice is heard.",
+    "Teamwork turns challenges into opportunities for everyone.",
+    "We shine brighter when we support each other.",
+    "Unity is the heartbeat of a successful service.",
+    "Every great outcome starts with a team that shows up.",
+]
 
 # Simple in-memory tracking of failed login attempts by IP address.
 # Structure: { ip: { 'count': int, 'locked_until': datetime or None } }
@@ -40,10 +59,17 @@ class Booking(db.Model):
     location = db.Column(db.String(100))  # NEW FIELD
 
 
+class StaffLoginLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    logged_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 # Home page
 @app.route("/")
 def home():
-    return render_template("home.html")
+    quote = TEAM_QUOTES[datetime.now().day % len(TEAM_QUOTES)]
+    return render_template("home.html", quote=quote)
 
 
 # Calendar page
@@ -74,9 +100,14 @@ def login():
 
     if request.method == 'POST':
         pw = request.form.get('password', '')
+        name = request.form.get('name', '').strip()
         if pw == ADMIN_PASSWORD:
             session['logged_in'] = True
             LOGIN_ATTEMPTS[client_ip] = {'count': 0, 'locked_until': None}
+            if name:
+                log_entry = StaffLoginLog(name=name)
+                db.session.add(log_entry)
+                db.session.commit()
             flash('Logged in successfully.', 'success')
             return redirect(url_for('calendar'))
         else:
@@ -107,10 +138,147 @@ def logout():
     return redirect(url_for('home'))
 
 
+@app.route('/staff-log', methods=['GET', 'POST'])
+def staff_log():
+    if request.method == 'POST':
+        password = request.form.get('password', '').strip()
+        if password != STAFF_LOG_PASSWORD:
+            flash('Incorrect staff log password.', 'warning')
+            return render_template('staff_log.html', entries=[], totals=None, therapist_stats=None)
+
+        entries = StaffLoginLog.query.order_by(StaffLoginLog.logged_at.desc()).all()
+        bookings = Booking.query.all()
+
+        roster = [
+            'Jules', 'Aly', 'Amira', 'Echo',
+            'Suprani', 'Rose', 'Daisy', 'Lay',
+            'Not assigned yet'
+        ]
+
+        therapist_stats = {
+            name: {'hours': 0, 'earned': 0, 'paid': 0, 'owed': 0}
+            for name in roster
+        }
+
+        total_earned = 0
+        total_paid = 0
+        total_owed = 0
+
+        for booking in bookings:
+            therapist = booking.room or 'Not assigned yet'
+            if therapist not in therapist_stats:
+                therapist_stats[therapist] = {'hours': 0, 'earned': 0, 'paid': 0, 'owed': 0}
+
+            minutes = booking.duration or 0
+            hours = minutes / 60
+            earned = hours * HOURLY_RATE
+            paid_amount = earned if booking.paid else 0
+            owed_amount = earned - paid_amount
+
+            therapist_stats[therapist]['hours'] += hours
+            therapist_stats[therapist]['earned'] += earned
+            therapist_stats[therapist]['paid'] += paid_amount
+            therapist_stats[therapist]['owed'] += owed_amount
+
+            total_earned += earned
+            total_paid += paid_amount
+            total_owed += owed_amount
+
+        therapist_stats = [
+            {
+                'therapist': therapist,
+                'hours': values['hours'],
+                'earned': values['earned'],
+                'paid': values['paid'],
+                'owed': values['owed'],
+            }
+            for therapist, values in sorted(therapist_stats.items())
+        ]
+
+        totals = {
+            'earned': total_earned,
+            'paid': total_paid,
+            'owed': total_owed,
+        }
+
+        return render_template('staff_log.html', entries=entries, totals=totals, therapist_stats=therapist_stats)
+
+    return render_template('staff_log.html', entries=[], totals=None, therapist_stats=None)
+
+
 @app.route('/calendar')
 @login_required
 def calendar():
-    return render_template("calendar.html")
+    today = datetime.now().date()
+    start_of_week = today - timedelta(days=(today.weekday() + 1) % 7)
+    end_of_week = start_of_week + timedelta(days=6)
+
+    weekly_stats = {}
+    total_weekly_minutes = 0
+
+    bookings = Booking.query.all()
+    for booking in bookings:
+        if not booking.start_time:
+            continue
+
+        booking_date = booking.start_time.date()
+        if start_of_week <= booking_date <= end_of_week:
+            therapist = booking.room or 'Unassigned'
+            if therapist not in weekly_stats:
+                weekly_stats[therapist] = {'minutes': 0, 'appointments': 0}
+
+            weekly_stats[therapist]['minutes'] += booking.duration or 0
+            weekly_stats[therapist]['appointments'] += 1
+            total_weekly_minutes += booking.duration or 0
+
+    weekly_stats_list = []
+    for therapist, values in sorted(weekly_stats.items()):
+        hours = values['minutes'] / 60
+        weekly_stats_list.append({
+            'therapist': therapist,
+            'hours': hours,
+            'earnings': hours * HOURLY_RATE,
+            'appointments': values['appointments']
+        })
+
+    monthly_appointments = sum(
+        1 for booking in bookings
+        if booking.start_time and booking.start_time.year == today.year and booking.start_time.month == today.month
+    )
+
+    monthly_bookings = [
+        booking for booking in bookings
+        if booking.start_time and booking.start_time.year == today.year and booking.start_time.month == today.month
+    ]
+
+    monthly_weeks = []
+    for week_start in range(1, 32):
+        pass
+
+    week_totals = []
+    for booking in monthly_bookings:
+        booking_week = booking.start_time.date() - timedelta(days=(booking.start_time.weekday() + 1) % 7)
+        week_totals.append((booking_week, booking.duration or 0))
+
+    weekly_totals_by_week = {}
+    for booking_week, minutes in week_totals:
+        weekly_totals_by_week[booking_week] = weekly_totals_by_week.get(booking_week, 0) + minutes
+
+    if weekly_totals_by_week:
+        average_weekly_hours = sum(value / 60 for value in weekly_totals_by_week.values()) / len(weekly_totals_by_week)
+    else:
+        average_weekly_hours = 0
+
+    return render_template(
+        "calendar.html",
+        weekly_stats=weekly_stats_list,
+        weekly_total_hours=total_weekly_minutes / 60,
+        weekly_start_label=start_of_week.strftime('%d %b'),
+        weekly_end_label=end_of_week.strftime('%d %b'),
+        monthly_appointments=monthly_appointments,
+        average_weekly_hours=average_weekly_hours,
+        hourly_rate=HOURLY_RATE
+    )
 
 
 # Add booking page
@@ -119,21 +287,27 @@ def calendar():
 def add_booking():
 
     if request.method == "POST":
+        form = request.form
+        name = form.get("customer_name", "").strip()
+        phone = form.get("phone", "").strip()
+        start_time_str = form.get("start_time", "").strip()
+        duration_str = form.get("duration", "").strip()
+        paid_value = form.get("paid", "no")
+        room = form.get("room", "Not assigned yet").strip()
+        location = form.get("location", "").strip()
 
-        name = request.form["customer_name"]
-        phone = request.form["phone"]
+        if not name or not phone or not start_time_str or not duration_str:
+            flash("Customer name, phone, appointment time and duration are required.", "warning")
+            return render_template("add_booking.html")
 
-        start_time = datetime.strptime(
-            request.form["start_time"],
-            "%Y-%m-%dT%H:%M"
-        )
+        try:
+            start_time = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M")
+            duration = int(duration_str)
+        except ValueError:
+            flash("Please provide a valid appointment time and duration.", "warning")
+            return render_template("add_booking.html")
 
-        duration = int(request.form["duration"])
-
-        paid = request.form["paid"] == "yes"
-
-        room = request.form["room"]
-        location = request.form["location"]
+        paid = paid_value == "yes"
 
         booking = Booking(
             customer_name=name,
@@ -162,18 +336,29 @@ def edit_booking(booking_id):
         return redirect("/calendar")
 
     if request.method == "POST":
-        booking.customer_name = request.form["customer_name"]
-        booking.phone = request.form["phone"]
+        form = request.form
+        booking.customer_name = (form.get("customer_name") or booking.customer_name or "").strip()
+        booking.phone = (form.get("phone") or booking.phone or "").strip()
+        start_time_str = form.get("start_time", "").strip()
+        duration_str = form.get("duration", "").strip()
+        paid_value = form.get("paid", "no")
+        booking.room = (form.get("room") or booking.room or "Not assigned yet").strip()
+        booking.location = (form.get("location") or booking.location or "").strip()
 
-        booking.start_time = datetime.strptime(
-            request.form["start_time"],
-            "%Y-%m-%dT%H:%M"
-        )
+        if not booking.customer_name or not booking.phone or not start_time_str or not duration_str:
+            flash("Customer name, phone, appointment time and duration are required.", "warning")
+            start_value = booking.start_time.strftime("%Y-%m-%dT%H:%M") if booking.start_time else ""
+            return render_template("edit_booking.html", booking=booking, start_value=start_value)
 
-        booking.duration = int(request.form["duration"])
-        booking.paid = request.form["paid"] == "yes"
-        booking.room = request.form["room"]
-        booking.location = request.form["location"]
+        try:
+            booking.start_time = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M")
+            booking.duration = int(duration_str)
+        except ValueError:
+            flash("Please provide a valid appointment time and duration.", "warning")
+            start_value = booking.start_time.strftime("%Y-%m-%dT%H:%M") if booking.start_time else ""
+            return render_template("edit_booking.html", booking=booking, start_value=start_value)
+
+        booking.paid = paid_value == "yes"
 
         db.session.commit()
 

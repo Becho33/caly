@@ -4,11 +4,14 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h3 class="card-title">Admin Login</h3>
-                <p class="text-muted small">Enter the admin password to access the calendar.</p>
+    <div class="col-md-6 col-lg-5">
+        <div class="auth-card card shadow-sm border-0">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="auth-icon">🔐</div>
+                    <h3 class="card-title mb-2">Admin Login</h3>
+                    <p class="text-muted mb-0">Enter the admin password to access the calendar.</p>
+                </div>
 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
@@ -20,15 +23,18 @@
 
                 <form method="POST">
                     <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input class="form-control" type="password" name="password" required>
+                        <label class="form-label fw-semibold">Name</label>
+                        <input class="form-control form-control-lg" type="text" name="name" placeholder="Enter your name" required>
                     </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-primary" type="submit">Login</button>
-                        <a class="btn btn-link" href="{{ url_for('home') }}">Cancel</a>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Password</label>
+                        <input class="form-control form-control-lg" type="password" name="password" required>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-center mt-4">
+                        <button class="btn btn-primary btn-lg px-4" type="submit">Login</button>
+                        <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('home') }}">Cancel</a>
                     </div>
                 </form>
-
             </div>
         </div>
     </div>

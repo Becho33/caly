@@ -12,6 +12,57 @@
     <div>
         <a href="{{ url_for('add_booking') }}" class="btn btn-success">+ Add Booking</a>
         <button id="test-modal-btn" class="btn btn-outline-info ms-2">Test Modal</button>
+        <button id="waiting-room-btn" class="btn btn-outline-primary ms-2">Waiting Room</button>
+    </div>
+</div>
+
+<div class="stats-panel card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+            <div>
+                <h2 class="h5 mb-1">Weekly Statistics</h2>
+                <p class="text-muted mb-0">Sunday to Saturday · {{ weekly_start_label }} - {{ weekly_end_label }}</p>
+            </div>
+            <div class="stats-pill">Estimated rate: £{{ "%.2f"|format(hourly_rate) }}/hr</div>
+        </div>
+
+        {% if weekly_stats %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Therapist</th>
+                        <th scope="col">Hours</th>
+                        <th scope="col">£ Earned</th>
+                        <th scope="col">Appointments</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in weekly_stats %}
+                    <tr>
+                        <td>{{ stat.therapist }}</td>
+                        <td>{{ "%.1f"|format(stat.hours) }}h</td>
+                        <td>£{{ "%.2f"|format(stat.earnings) }}</td>
+                        <td>{{ stat.appointments }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="table-light fw-bold">
+                        <td>Total</td>
+                        <td>{{ "%.1f"|format(weekly_total_hours) }}h</td>
+                        <td>£{{ "%.2f"|format(weekly_total_hours * hourly_rate) }}</td>
+                        <td>{{ weekly_stats | sum(attribute='appointments') }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">No bookings recorded for this week yet.</p>
+        {% endif %}
+
+        <div class="mt-3 pt-3 border-top d-flex flex-wrap gap-3">
+            <div><strong>Monthly appointments:</strong> {{ monthly_appointments }}</div>
+            <div><strong>Average weekly hours:</strong> {{ "%.1f"|format(average_weekly_hours) }}h</div>
+        </div>
     </div>
 </div>
 
@@ -61,6 +112,31 @@
     </div>
 </div>
 
+<div class="modal fade" id="waitingRoomModal" tabindex="-1" aria-labelledby="waitingRoomLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="waitingRoomLabel">Waiting Room Game</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <canvas id="snakeCanvas" width="320" height="320" class="snake-game-canvas"></canvas>
+                <div class="snake-status mt-3 text-muted">Use the arrows or keyboard to move.</div>
+                <div class="d-flex justify-content-center snake-controls mt-3 flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary snake-control-btn" data-dir="up">▲</button>
+                    <button type="button" class="btn btn-outline-secondary snake-control-btn" data-dir="left">◀</button>
+                    <button type="button" class="btn btn-outline-secondary snake-control-btn" data-dir="down">▼</button>
+                    <button type="button" class="btn btn-outline-secondary snake-control-btn" data-dir="right">▶</button>
+                </div>
+                <button type="button" id="snakeRestartBtn" class="btn btn-sm btn-primary mt-3">Restart Game</button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -87,6 +163,166 @@
                     var bookingModal = new bootstrap.Modal(bookingModalEl);
                     bookingModal.show();
                 });
+
+                var waitingBtn = document.getElementById('waiting-room-btn');
+                var waitingModalEl = document.getElementById('waitingRoomModal');
+                var waitingModal = waitingModalEl ? new bootstrap.Modal(waitingModalEl) : null;
+                var snakeCanvas = document.getElementById('snakeCanvas');
+                var snakeCtx = snakeCanvas ? snakeCanvas.getContext('2d') : null;
+                var direction = 'right';
+                var nextDirection = 'right';
+                var snake = [];
+                var food = null;
+                var gameInterval = null;
+                var cellSize = 16;
+                var gridCount = 20;
+                var gameSpeed = 120;
+                var isGameOver = false;
+                var statusEl = document.querySelector('.snake-status');
+
+                function resetSnakeGame() {
+                    direction = 'right';
+                    nextDirection = 'right';
+                    snake = [
+                        { x: 8, y: 10 },
+                        { x: 7, y: 10 },
+                        { x: 6, y: 10 }
+                    ];
+                    food = createFood();
+                    isGameOver = false;
+                    updateSnakeStatus('Waiting room: have fun!');
+                    drawSnakeGame();
+                    startSnakeLoop();
+                }
+
+                function createFood() {
+                    var position;
+                    do {
+                        position = {
+                            x: Math.floor(Math.random() * gridCount),
+                            y: Math.floor(Math.random() * gridCount)
+                        };
+                    } while (snake.some(function(part) { return part.x === position.x && part.y === position.y; }));
+                    return position;
+                }
+
+                function updateSnakeStatus(text) {
+                    if (statusEl) statusEl.textContent = text;
+                }
+
+                function drawSnakeGame() {
+                    if (!snakeCtx) return;
+                    snakeCtx.clearRect(0, 0, snakeCanvas.width, snakeCanvas.height);
+                    snakeCtx.fillStyle = '#f4fcfb';
+                    snakeCtx.fillRect(0, 0, snakeCanvas.width, snakeCanvas.height);
+
+                    snakeCtx.fillStyle = '#2c8e8a';
+                    snake.forEach(function(segment) {
+                        snakeCtx.fillRect(segment.x * cellSize, segment.y * cellSize, cellSize - 1, cellSize - 1);
+                    });
+
+                    if (food) {
+                        snakeCtx.fillStyle = '#ff6b6b';
+                        snakeCtx.fillRect(food.x * cellSize, food.y * cellSize, cellSize - 1, cellSize - 1);
+                    }
+                }
+
+                function changeDirection(dir) {
+                    var opposite = {
+                        up: 'down',
+                        down: 'up',
+                        left: 'right',
+                        right: 'left'
+                    };
+                    if (dir !== opposite[direction]) {
+                        nextDirection = dir;
+                    }
+                }
+
+                function stepSnakeGame() {
+                    if (isGameOver) return;
+                    direction = nextDirection;
+                    var head = snake[0];
+                    var nextHead = { x: head.x, y: head.y };
+                    if (direction === 'up') nextHead.y -= 1;
+                    if (direction === 'down') nextHead.y += 1;
+                    if (direction === 'left') nextHead.x -= 1;
+                    if (direction === 'right') nextHead.x += 1;
+
+                    if (nextHead.x < 0 || nextHead.x >= gridCount || nextHead.y < 0 || nextHead.y >= gridCount || snake.some(function(part) { return part.x === nextHead.x && part.y === nextHead.y; })) {
+                        endSnakeGame();
+                        return;
+                    }
+
+                    snake.unshift(nextHead);
+                    if (food && nextHead.x === food.x && nextHead.y === food.y) {
+                        food = createFood();
+                        updateSnakeStatus('Great! Score: ' + (snake.length - 3));
+                    } else {
+                        snake.pop();
+                    }
+                    drawSnakeGame();
+                }
+
+                function startSnakeLoop() {
+                    if (gameInterval) clearInterval(gameInterval);
+                    gameInterval = setInterval(stepSnakeGame, gameSpeed);
+                }
+
+                function endSnakeGame() {
+                    isGameOver = true;
+                    updateSnakeStatus('Game over! Score: ' + (snake.length - 3) + '. Restart to play again.');
+                    if (gameInterval) clearInterval(gameInterval);
+                }
+
+                function stopSnakeLoop() {
+                    if (gameInterval) {
+                        clearInterval(gameInterval);
+                        gameInterval = null;
+                    }
+                }
+
+                if (waitingBtn && waitingModalEl && snakeCanvas) {
+                    waitingBtn.addEventListener('click', function() {
+                        waitingModal.show();
+                    });
+
+                    waitingModalEl.addEventListener('shown.bs.modal', function() {
+                        resetSnakeGame();
+                    });
+
+                    waitingModalEl.addEventListener('hide.bs.modal', function() {
+                        stopSnakeLoop();
+                    });
+
+                    document.querySelectorAll('.snake-control-btn').forEach(function(control) {
+                        control.addEventListener('click', function() {
+                            changeDirection(this.dataset.dir);
+                        });
+                    });
+
+                    document.getElementById('snakeRestartBtn').addEventListener('click', function() {
+                        resetSnakeGame();
+                    });
+
+                    document.addEventListener('keydown', function(event) {
+                        var keyMap = {
+                            ArrowUp: 'up',
+                            ArrowDown: 'down',
+                            ArrowLeft: 'left',
+                            ArrowRight: 'right',
+                            w: 'up',
+                            s: 'down',
+                            a: 'left',
+                            d: 'right'
+                        };
+                        var dir = keyMap[event.key];
+                        if (dir && waitingModalEl.classList.contains('show')) {
+                            event.preventDefault();
+                            changeDirection(dir);
+                        }
+                    });
+                }
             });
         </script>
 

@@ -4,18 +4,17 @@
 
 {% block content %}
 
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-body text-center">
-                <h1 class="card-title">Booking System</h1>
-                <p class="lead">Manage appointments, rooms and locations quickly.</p>
+<div class="hero-card">
+    <div class="hero-content">
+        <span class="hero-badge">Booking Dashboard</span>
+        <h1>Kushu booking appointments.</h1>
+        <p class="lead">Keep your appointments organised in one calm place.</p>
+        <p class="lead">Manage bookings, rooms, and client details quickly with a simple, polished workflow.</p>
+        <p class="hero-quote">“{{ quote }}”</p>
 
-                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-                    <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Open Calendar</a>
-                    <a href="{{ url_for('add_booking') }}" class="btn btn-outline-secondary btn-lg">Add Booking</a>
-                </div>
-            </div>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
+            <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4">Open Calendar</a>
+            <a href="{{ url_for('add_booking') }}" class="btn btn-outline-secondary btn-lg px-4">Add Booking</a>
         </div>
     </div>
 </div>

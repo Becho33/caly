@@ -9,7 +9,7 @@
         <div class="card shadow-sm">
             <div class="card-body">
                 <h2 class="card-title">Edit Appointment</h2>
-                <form method="POST" novalidate>
+                <form method="POST" action="{{ url_for('edit_booking', booking_id=booking.id) }}" novalidate>
 
                     <div class="mb-3">
                         <label class="form-label">Customer Name</label>

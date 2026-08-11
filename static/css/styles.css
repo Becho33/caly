@@ -1,27 +1,176 @@
 body {
-    background-color: #f8f9fa;
+    background: linear-gradient(135deg, #eef8f7 0%, #ffffff 100%);
+    color: #24303e;
+}
+
+main.container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
 }
 
 /* Calendar card spacing */
 #calendar.card {
     min-height: 60vh;
+    background: #ffffff;
+    border: 1px solid rgba(15, 57, 57, 0.08);
+    border-radius: 18px;
+}
+
+/* Hero landing card */
+.hero-card {
+    background: linear-gradient(135deg, #fbffff 0%, #e8f7f6 100%);
+    border: 1px solid #d9eef0;
+    border-radius: 24px;
+    box-shadow: 0 18px 40px rgba(42, 71, 78, 0.08);
+    padding: 3rem 2rem;
+    text-align: center;
+}
+
+.hero-badge {
+    display: inline-block;
+    padding: 0.45rem 0.9rem;
+    margin-bottom: 1rem;
+    border-radius: 999px;
+    background: #cff1ec;
+    color: #0f6063;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.hero-card h1 {
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #173239;
+}
+
+.hero-card .lead {
+    color: #4f636d;
+    font-size: 1.08rem;
+    max-width: 680px;
+    margin: 0 auto;
+}
+
+.hero-quote {
+    margin-top: 1rem;
+    font-style: italic;
+    color: #2c4a50;
+    font-size: 1rem;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Login/auth card */
+.auth-card {
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid #d9eef0;
+    background: #fdfefe;
+}
+
+.stats-panel {
+    border-radius: 18px;
+    border: 1px solid #d9eef0;
+    background: #fcffff;
+}
+
+.stats-pill {
+    background: #d9f2ef;
+    color: #0f6264;
+    border-radius: 999px;
+    padding: 0.45rem 0.95rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.auth-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #d9f2ef;
+    font-size: 1.6rem;
+    margin-bottom: 0.8rem;
+}
+
+.table thead {
+    background: #f2fbfa;
+}
+
+.table th,
+.table td {
+    border-top: none;
+}
+
+.table-sm tbody tr:hover {
+    background: rgba(11, 98, 103, 0.05);
+}
+
+.btn-primary {
+    background-color: #2c8e8a !important;
+    border-color: #2c8e8a !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: #236f6c !important;
+    border-color: #236f6c !important;
+}
+
+.btn-outline-secondary {
+    color: #2c8e8a !important;
+    border-color: #2c8e8a !important;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+    background-color: rgba(44, 142, 138, 0.08) !important;
+    border-color: #2c8e8a !important;
+}
+
+.card,
+.modal-content,
+.table-responsive table {
+    background: #ffffff;
 }
 
 /* Small utility tweaks */
 .lead {
-    color: #6c757d;
+    color: #5a6d74;
+}
+
+.snake-game-canvas {
+    width: 100%;
+    max-width: 360px;
+    height: auto;
+    border: 2px solid #cdece8;
+    border-radius: 14px;
+    background: #f4fcfb;
+}
+
+.snake-controls {
+    gap: 0.75rem;
+}
+
+.snake-control-btn {
+    min-width: 52px;
 }
 
 /* Keep existing custom button fallback */
 .button {
     display: inline-block;
     padding: 10px 16px;
-    background-color: #0d6efd;
+    background-color: #2c8e8a;
     color: white;
     text-decoration: none;
     border-radius: 6px;
     font-weight: 600;
 }
 .button:hover {
-    background-color: #0b5ed7;
+    background-color: #236f6c;
 }
