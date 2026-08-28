@@ -23,8 +23,8 @@
                 <form method="POST" class="mb-4">
                     <div class="row g-3 align-items-end">
                         <div class="col-md-8">
-                            <label class="form-label fw-semibold">Password</label>
-                            <input class="form-control" type="password" name="password" required>
+                            <label class="form-label fw-semibold" for="staff-log-password">Password</label>
+                            <input class="form-control" id="staff-log-password" type="password" name="password" required>
                         </div>
                         <div class="col-md-4">
                             <button class="btn btn-primary w-100" type="submit">View Log</button>
@@ -99,6 +99,21 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                {% endif %}
+                {% if entries or therapist_stats is not none %}
+                <hr>
+                <h5 class="mb-3">Control Panel — Quick Links</h5>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <a class="btn btn-outline-primary" href="{{ url_for('add_booking') }}">Add Booking</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('calendar') }}">Calendar</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('staff_list') }}">Staff List</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('add_staff') }}">Add Staff</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('availability_list') }}">Availability</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('rota_week') }}">Rota / Week View</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('add_shift') }}">Add Shift</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('payments_dashboard') }}">Payments</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('staff_list') }}#profiles">Staff Profiles</a>
                 </div>
                 {% endif %}
             </div>

@@ -14,14 +14,15 @@ document.addEventListener('DOMContentLoaded', function () {
             if (el) el.textContent = value;
         };
 
-        setText('bd-customer', ev.title || '-');
+        setText('bd-customer', props.customer_name || ev.title || '-');
         setText('bd-phone', props.phone || '-');
         setText('bd-room', props.room || '-');
         setText('bd-location', props.location || '-');
         setText('bd-start', ev.start ? ev.start.toLocaleString() : '-');
         setText('bd-end', ev.end ? ev.end.toLocaleString() : '-');
         setText('bd-duration', props.duration ? props.duration + ' mins' : '-');
-        setText('bd-paid', (props.paid === true || props.paid === 'true') ? 'Yes' : 'No');
+        var paymentLabels = { paid: 'Paid', not_paid: 'Not Paid', group: 'Groupon Voucher' };
+        setText('bd-paid', paymentLabels[props.payment_status] || ((props.paid === true || props.paid === 'true') ? 'Paid' : 'Not Paid'));
 
         var editLink = document.getElementById('bd-edit-link');
         if (editLink) {
@@ -31,6 +32,11 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 editLink.style.display = 'none';
             }
+        }
+
+        var revealLink = document.getElementById('bd-reveal-link');
+        if (revealLink && ev.id) {
+            revealLink.setAttribute('href', '/privacy/unlock?next=' + encodeURIComponent('/calendar?booking=' + ev.id));
         }
 
         // set delete button data-id
@@ -49,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('[calendar] Modal element missing');
             return;
         }
-        var bookingModal = new bootstrap.Modal(bookingModalEl);
+        var bookingModal = bootstrap.Modal.getOrCreateInstance(bookingModalEl);
         bookingModal.show();
     }
 
@@ -83,13 +89,12 @@ document.addEventListener('DOMContentLoaded', function () {
         events: '/events',
 
         selectable: true,
-        editable: true,
+        // There is no server endpoint for persisting drag/drop changes.
+        editable: false,
 
         // When user clicks a date
         dateClick: function(info) {
-            console.log('[calendar] dateClick', info.dateStr);
-            // small UX: navigate to add booking with date? currently alert
-            // alert("You clicked on: " + info.dateStr);
+            window.location.href = '/add-booking?date=' + encodeURIComponent(info.dateStr.substring(0, 10));
         },
 
         // When user clicks an event
@@ -105,16 +110,16 @@ document.addEventListener('DOMContentLoaded', function () {
             info.el.style.color = '#ffffff';
             info.el.style.border = info.event.extendedProps.paid === false ? '2px solid red' : '1px solid #333';
 
-            // make event element explicitly clickable and attach fallback click
-            try {
-                info.el.style.cursor = 'pointer';
-                info.el.addEventListener('click', function(e) {
-                    // prevent double-handling if FullCalendar also fires eventClick
-                    e.stopPropagation();
-                    showBookingModal(info.event);
-                });
-            } catch (err) {
-                console.warn('[calendar] could not attach fallback click to event element', err);
+            info.el.style.cursor = 'pointer';
+        },
+
+        eventsSet: function() {
+            var bookingId = new URLSearchParams(window.location.search).get('booking');
+            if (!bookingId || window._reopenedBooking) return;
+            var event = window._bookingCalendar.getEventById(bookingId);
+            if (event) {
+                window._reopenedBooking = true;
+                showBookingModal(event);
             }
         }
 
@@ -142,7 +147,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         // refresh calendar
                         if (window._bookingCalendar) window._bookingCalendar.refetchEvents();
-                        alert('Booking deleted');
+                        var status = document.getElementById('calendar-status');
+                        if (status) status.textContent = 'Booking deleted successfully.';
                     } else {
                         alert('Could not delete booking');
                     }

@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+
+{% block title %}Shift Form{% endblock %}
+
+{% block content %}
+<h1>{% if shift %}Edit{% else %}Add{% endif %} Shift</h1>
+<form method="post">
+    <div class="mb-2">
+        <label class="form-label" for="shift-staff">Staff</label>
+        <select class="form-select" id="shift-staff" name="staff_id" required>
+            {% for s in staff %}
+            <option value="{{ s.id }}" {% if shift and shift.staff_id==s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-2">
+        <label class="form-label" for="shift-date">Date</label>
+        <input class="form-control" id="shift-date" type="date" name="date" value="{{ shift.date if shift else '' }}" required>
+    </div>
+    <div class="mb-2">
+        <label class="form-label" for="shift-start">Start</label>
+        <input class="form-control" id="shift-start" type="time" name="start" value="{{ shift.start_time.strftime('%H:%M') if shift else '' }}" required>
+    </div>
+    <div class="mb-2">
+        <label class="form-label" for="shift-end">End</label>
+        <input class="form-control" id="shift-end" type="time" name="end" value="{{ shift.end_time.strftime('%H:%M') if shift else '' }}" required>
+    </div>
+    <div class="mb-2">
+        <label class="form-label" for="shift-rate">Hourly rate override (optional)</label>
+        {% if session.get('pay_settings_unlocked') %}
+            <input class="form-control" id="shift-rate" type="number" min="0" step="0.01" name="hourly_rate" value="{{ shift.hourly_rate if shift and shift.hourly_rate is not none else '' }}" placeholder="Standard: £30.00/hour">
+            <div class="form-text">Applies only to appointment minutes within this shift. Leave blank to use 50p per minute.</div>
+        {% else %}
+            <div class="input-group">
+                <input class="form-control" id="shift-rate" value="********" disabled aria-label="Hourly rate override locked">
+                <a class="btn btn-outline-primary" href="{{ url_for('pay_settings_unlock', next=request.path) }}">Unlock</a>
+            </div>
+            <div class="form-text">Password protected. The standard rate is 50p per appointment minute.</div>
+        {% endif %}
+    </div>
+    <div class="mb-2">
+        <label class="form-label" for="shift-notes">Notes</label>
+        <input class="form-control" id="shift-notes" name="notes" value="{{ shift.notes if shift else '' }}">
+    </div>
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a class="btn btn-secondary" href="{{ url_for('rota_week') }}">Cancel</a>
+</form>
+<div id="shift-conflict" style="margin-top:10px;"></div>
+<div id="shift-timeline" style="margin-top:10px;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const dateEl = document.querySelector('input[name="date"]');
+    const startEl = document.querySelector('input[name="start"]');
+    const endEl = document.querySelector('input[name="end"]');
+    const submitBtn = document.querySelector('button[type="submit"]');
+    const conflictDiv = document.getElementById('shift-conflict');
+    let shiftId = null;
+    {% if shift and shift.id %}
+    shiftId = {{ shift.id }};
+    {% endif %}
+
+    let timer = null;
+    function renderConflict(blocked, conflicts, suggestions){
+        if(!blocked){
+            conflictDiv.innerHTML = '';
+            conflictDiv.className = '';
+            submitBtn.disabled = false;
+            return;
+        }
+        let html = '<div class="alert alert-warning"><strong>Conflicts:</strong><ul>';
+        (conflicts || []).forEach(c => {
+            html += `<li>${c.staff} <span class="badge bg-danger">${c.start}-${c.end}</span></li>`;
+        });
+        html += '</ul>';
+        if(suggestions){
+            html += '<div style="margin-top:8px"><strong>Suggestions:</strong>';
+            const order = ['earliest','centered','latest'];
+            order.forEach(strategy => {
+                const arr = suggestions[strategy] || [];
+                if(arr.length){
+                    html += `<div style="margin-top:6px"><em>${strategy.charAt(0).toUpperCase()+strategy.slice(1)}:</em> `;
+                    arr.forEach((s, idx) => {
+                        html += `<button type="button" class="btn btn-sm btn-outline-primary suggestion-btn" data-start="${s.start}" data-end="${s.end}" style="margin-right:6px">${s.start}–${s.end}</button>`;
+                    });
+                    html += '</div>';
+                }
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+        conflictDiv.innerHTML = html;
+        // attach handlers
+        conflictDiv.querySelectorAll('.suggestion-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const s = btn.getAttribute('data-start');
+                const e = btn.getAttribute('data-end');
+                if(startEl) startEl.value = s;
+                if(endEl) endEl.value = e;
+                // re-run check immediately
+                checkNow();
+            });
+        });
+        submitBtn.disabled = true;
+    }
+
+    function checkNow(){
+        if(!dateEl.value || !startEl.value || !endEl.value){
+            renderConflict(false, [], null);
+            drawTimeline([], startEl ? startEl.value : null, endEl ? endEl.value : null);
+            return;
+        }
+        const data = new URLSearchParams();
+        data.append('date', dateEl.value);
+        data.append('start', startEl.value);
+        data.append('end', endEl.value);
+        if(shiftId) data.append('shift_id', shiftId);
+        fetch('{{ url_for('check_shift_overlap') }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: data.toString()
+        }).then(r => r.json()).then(j => {
+            if(j && j.blocked){
+                renderConflict(true, j.conflicts || [], j.suggestions || {});
+            } else {
+                renderConflict(false, [], {});
+            }
+            // draw timeline using existing shifts and requested slot
+            drawTimeline(j && j.existing ? j.existing : [], startEl.value, endEl.value, j && j.conflicts ? j.conflicts : []);
+        }).catch(err => {
+            // ignore transient errors
+            console.error('Overlap check failed', err);
+        });
+    }
+
+    function drawTimeline(existing, reqStart, reqEnd, conflicts){
+        const cont = document.getElementById('shift-timeline');
+        cont.innerHTML = '';
+        const width = 720;
+        const height = 120;
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', height);
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+        const dayStart = 6; const dayEnd = 23; const span = dayEnd - dayStart;
+        function timeToX(t){
+            if(!t) return 0;
+            const parts = t.split(':');
+            const hh = parseInt(parts[0],10);
+            const mm = parseInt(parts[1],10);
+            const minutes = (hh + mm/60) - dayStart;
+            return Math.round((minutes / span) * (width-60)) + 30;
+        }
+
+        // background
+        const bg = document.createElementNS(svgNS, 'rect');
+        bg.setAttribute('x', 0);
+        bg.setAttribute('y', 0);
+        bg.setAttribute('width', width);
+        bg.setAttribute('height', height);
+        bg.setAttribute('fill', 'transparent');
+        svg.appendChild(bg);
+
+        // hour grid
+        for(let h=dayStart; h<=dayEnd; h++){
+            const x = Math.round(((h - dayStart)/span)*(width-60))+30;
+            const line = document.createElementNS(svgNS,'line');
+            line.setAttribute('x1', x); line.setAttribute('y1', 20);
+            line.setAttribute('x2', x); line.setAttribute('y2', height-20);
+            line.setAttribute('stroke', '#eee'); line.setAttribute('stroke-width', '1');
+            svg.appendChild(line);
+            const txt = document.createElementNS(svgNS,'text');
+            txt.setAttribute('x', x+2); txt.setAttribute('y', 16);
+            txt.setAttribute('font-size','10'); txt.setAttribute('fill','#666'); txt.textContent = (h<10? '0'+h: h)+':00';
+            svg.appendChild(txt);
+        }
+
+        // draw existing shifts
+        existing.forEach((s, idx) =>{
+            const x1 = timeToX(s.start);
+            const x2 = timeToX(s.end);
+            const w = Math.max(2, x2-x1);
+            const y = 30 + (idx%4)*20;
+            const rect = document.createElementNS(svgNS,'rect');
+            rect.setAttribute('x', x1); rect.setAttribute('y', y);
+            rect.setAttribute('width', w); rect.setAttribute('height', 14);
+            rect.setAttribute('fill','#f28b82'); rect.setAttribute('opacity','0.9');
+            svg.appendChild(rect);
+            const label = document.createElementNS(svgNS,'text');
+            label.setAttribute('x', x1+4); label.setAttribute('y', y+11);
+            label.setAttribute('font-size','10'); label.setAttribute('fill','#400'); label.textContent = `${s.staff} ${s.start}-${s.end}`;
+            svg.appendChild(label);
+        });
+
+        // draw requested slot
+        if(reqStart && reqEnd){
+            const rx1 = timeToX(reqStart);
+            const rx2 = timeToX(reqEnd);
+            const rw = Math.max(2, rx2-rx1);
+            const rrect = document.createElementNS(svgNS,'rect');
+            rrect.setAttribute('x', rx1); rrect.setAttribute('y', height-48);
+            rrect.setAttribute('width', rw); rrect.setAttribute('height', 22);
+            rrect.setAttribute('fill','#8ab6ff'); rrect.setAttribute('opacity','0.9');
+            svg.appendChild(rrect);
+            const rlabel = document.createElementNS(svgNS,'text');
+            rlabel.setAttribute('x', rx1+4); rlabel.setAttribute('y', height-32);
+            rlabel.setAttribute('font-size','11'); rlabel.setAttribute('fill','#063'); rlabel.textContent = `Requested ${reqStart}-${reqEnd}`;
+            svg.appendChild(rlabel);
+
+            // highlight overlapping portions in red overlay
+            (conflicts||[]).forEach(c =>{
+                const ox1 = timeToX(c.start);
+                const ox2 = timeToX(c.end);
+                const ow = Math.max(2, Math.min(ox2, rx2) - Math.max(ox1, rx1));
+                if(ow>0){
+                    const over = document.createElementNS(svgNS,'rect');
+                    over.setAttribute('x', Math.max(ox1, rx1)); over.setAttribute('y', height-48);
+                    over.setAttribute('width', ow); over.setAttribute('height', 22);
+                    over.setAttribute('fill','#d32f2f'); over.setAttribute('opacity','0.6');
+                    svg.appendChild(over);
+                }
+            });
+        }
+
+        cont.appendChild(svg);
+    }
+
+    [dateEl, startEl, endEl].forEach(el => {
+        if(!el) return;
+        el.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(checkNow, 350);
+        });
+        el.addEventListener('change', () => {
+            clearTimeout(timer);
+            timer = setTimeout(checkNow, 50);
+        });
+    });
+})();
+</script>
+{% endblock %}

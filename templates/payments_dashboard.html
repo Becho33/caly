@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Payments Dashboard{% endblock %}
+
+{% block content %}
+<h1>Payments Dashboard</h1>
+<p class="text-muted">Earnings use 50p per assigned appointment minute, unless a protected hourly-rate override applies to the matching rota shift.</p>
+<form class="row g-2 mb-3" method="get">
+    <div class="col-auto">
+        <label class="form-label" for="payment-start">Start</label>
+        <input class="form-control" id="payment-start" type="date" name="start" value="{{ start or '' }}">
+    </div>
+    <div class="col-auto">
+        <label class="form-label" for="payment-end">End</label>
+        <input class="form-control" id="payment-end" type="date" name="end" value="{{ end or '' }}">
+    </div>
+    <div class="col-auto align-self-end">
+        <button class="btn btn-primary">Filter</button>
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead><tr><th>Staff</th><th>Appointment Hours</th><th>Earned</th><th>Paid</th><th>Outstanding</th></tr></thead>
+    <tbody>
+        {% for row in results %}
+        <tr>
+            <td><a href="{{ url_for('staff_profile', staff_id=row.staff.id) }}">{{ row.staff.name }}</a></td>
+            <td>{{ '%.2f'|format(row.hours) }}</td>
+            <td>£{{ '%.2f'|format(row.earned) }}</td>
+            <td>£{{ '%.2f'|format(row.paid) }}</td>
+            <td>£{{ '%.2f'|format(row.outstanding) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Totals</h3>
+<ul>
+    <li>Total appointment hours: {{ '%.2f'|format(totals.hours) }}</li>
+    <li>Total earned: £{{ '%.2f'|format(totals.earned) }}</li>
+    <li>Total paid: £{{ '%.2f'|format(totals.paid) }}</li>
+    <li>Total outstanding: £{{ '%.2f'|format(totals.outstanding) }}</li>
+</ul>
+
+{% endblock %}

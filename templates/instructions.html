@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Instructions{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <h2>Application Instructions</h2>
+
+    <p>This page provides a brief user manual for the booking application.</p>
+
+    <h4>Getting started</h4>
+    <ul>
+        <li>Click <strong>Open Calendar</strong> to view and manage bookings (admin login required).</li>
+        <li>Use <strong>Add Booking</strong> to create a new appointment.</li>
+        <li>Use the calendar view to edit or delete existing bookings.</li>
+    </ul>
+
+    <h4>Staff Instructions</h4>
+    <ul>
+        <li><strong>Login:</strong> Use the Admin login on the home page to access calendar and staff features.</li>
+        <li><strong>Add / Edit staff:</strong> Go to <em>Staff</em> → <em>Add</em> to create a profile (name, email, phone, hourly rate). Use edit to update details.</li>
+        <li><strong>Set availability:</strong> From a staff member's availability form, set weekly availability (Mon–Sun) so the scheduler knows when they can work.</li>
+        <li><strong>Manage shifts:</strong> Add shifts to schedule staff. The system warns about overlaps and helps find time suggestions.</li>
+        <li><strong>Record payments:</strong> On a staff profile, add payments to track amounts paid and outstanding earnings.</li>
+        <li><strong>Staff Log:</strong> Use <em>Staff Log</em> (protected by a staff log password) to view recent staff login entries and summary stats.</li>
+    </ul>
+
+    <h4>Tips</h4>
+    <ul>
+        <li>Admin login is required for calendar and staff operations.</li>
+        <li>Use the <em>Export/print</em> features of your browser to keep records if needed.</li>
+    </ul>
+
+    <p class="mt-3"><a href="{{ url_for('home') }}" class="btn btn-secondary">Back to Home</a></p>
+</div>
+
+{% endblock %}

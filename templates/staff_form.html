@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Staff Form{% endblock %}
+
+{% block content %}
+<h1>{% if staff %}Edit{% else %}Add{% endif %} Staff</h1>
+<form method="post">
+    <div class="mb-3">
+        <label class="form-label" for="staff-name">Name</label>
+        <input class="form-control" id="staff-name" name="name" value="{{ staff.name if staff else '' }}" required>
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="staff-email">Email</label>
+        {% if not staff or session.get('personal_details_unlocked') %}
+            <input class="form-control" id="staff-email" type="email" name="email" value="{{ staff.email if staff else '' }}">
+        {% else %}
+            <div class="input-group">
+                <input class="form-control" id="staff-email" value="{{ staff.email|mask_personal }}" disabled>
+                <a class="btn btn-outline-primary" href="{{ url_for('privacy_unlock', next=request.path) }}">Reveal</a>
+            </div>
+        {% endif %}
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="staff-phone">Phone</label>
+        {% if not staff or session.get('personal_details_unlocked') %}
+            <input class="form-control" id="staff-phone" type="tel" name="phone" value="{{ staff.phone if staff else '' }}">
+        {% else %}
+            <div class="input-group">
+                <input class="form-control" id="staff-phone" value="{{ staff.phone|mask_personal }}" disabled>
+                <a class="btn btn-outline-primary" href="{{ url_for('privacy_unlock', next=request.path) }}">Reveal</a>
+            </div>
+            <div class="form-text">Contact details are hidden. Use “Reveal Details” to view or edit them.</div>
+        {% endif %}
+    </div>
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a class="btn btn-secondary" href="{{ url_for('staff_list') }}">Cancel</a>
+</form>
+{% endblock %}

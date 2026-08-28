@@ -9,56 +9,59 @@
         <div class="card shadow-sm">
             <div class="card-body">
                 <h2 class="card-title">Edit Appointment</h2>
-                <form method="POST" action="{{ url_for('edit_booking', booking_id=booking.id) }}" novalidate>
+                <form method="POST" action="{{ url_for('edit_booking', booking_id=booking.id) }}">
 
                     <div class="mb-3">
-                        <label class="form-label">Customer Name</label>
-                        <input class="form-control" type="text" name="customer_name" value="{{ booking.customer_name }}" required>
+                        <label class="form-label" for="customer-name">Customer Name</label>
+                        <input class="form-control" id="customer-name" type="text" name="customer_name" value="{{ booking.customer_name }}" required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Phone Number</label>
-                        <input class="form-control" type="text" name="phone" value="{{ booking.phone }}" required>
+                        <label class="form-label" for="customer-phone">Phone Number</label>
+                        {% if session.get('personal_details_unlocked') %}
+                            <input class="form-control" id="customer-phone" type="tel" name="phone" value="{{ booking.phone }}" required>
+                        {% else %}
+                            <div class="input-group">
+                                <input class="form-control" id="customer-phone" type="text" value="{{ booking.phone|mask_personal }}" disabled>
+                                <a class="btn btn-outline-primary" href="{{ url_for('privacy_unlock', next=request.path) }}">Reveal</a>
+                            </div>
+                            <div class="form-text">Hidden for privacy. Use “Reveal Details” to view or edit it.</div>
+                        {% endif %}
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Appointment Time</label>
-                        <input class="form-control" type="datetime-local" name="start_time" value="{{ start_value }}" required>
+                        <label class="form-label" for="booking-start">Appointment Time</label>
+                        <input class="form-control" id="booking-start" type="datetime-local" name="start_time" value="{{ start_value }}" required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Appointment Length (Minutes)</label>
-                        <input class="form-control" type="number" name="duration" value="{{ booking.duration }}" required>
+                        <label class="form-label" for="booking-duration">Appointment Length (Minutes)</label>
+                        <input class="form-control" id="booking-duration" type="number" min="1" name="duration" value="{{ booking.duration }}" required>
                     </div>
 
                     <div class="row">
                         <div class="mb-3 col-md-6">
-                            <label class="form-label">Room</label>
-                            <select class="form-select" name="room" required>
+                            <label class="form-label" for="booking-room">Room</label>
+                            <select class="form-select" id="booking-room" name="room" required>
                                 <option value="Not assigned yet" {% if booking.room == 'Not assigned yet' %}selected{% endif %}>Not assigned yet</option>
-                                <option value="Jules" {% if booking.room == 'Jules' %}selected{% endif %}>Jules</option>
-                                <option value="Aly" {% if booking.room == 'Aly' %}selected{% endif %}>Aly</option>
-                                <option value="Amira" {% if booking.room == 'Amira' %}selected{% endif %}>Amira</option>
-                                <option value="Echo" {% if booking.room == 'Echo' %}selected{% endif %}>Echo</option>
-                                <option value="Suprani" {% if booking.room == 'Suprani' %}selected{% endif %}>Suprani</option>
-                                <option value="Rose" {% if booking.room == 'Rose' %}selected{% endif %}>Rose</option>
-                                <option value="Daisy" {% if booking.room == 'Daisy' %}selected{% endif %}>Daisy</option>
-                                <option value="Lay" {% if booking.room == 'Lay' %}selected{% endif %}>Lay</option>
+                                {% for s in staff_members %}
+                                    <option value="{{ s.name }}" {% if booking.room == s.name %}selected{% endif %} title="{{ staff_avail.get(s.id, '') }}">{{ s.name }}{% if staff_avail.get(s.id) %} — {{ staff_avail[s.id][:30] }}{% if staff_avail[s.id]|length > 30 %}...{% endif %}{% endif %}</option>
+                                {% endfor %}
                             </select>
                         </div>
                         <div class="mb-3 col-md-6">
-                            <label class="form-label">Paid?</label>
-                            <select class="form-select" name="paid">
-                                    <option value="yes" {% if booking.paid %}selected{% endif %}>Paid</option>
-                                    <option value="no" {% if not booking.paid %}selected{% endif %}>Not Paid</option>
-                                    <option value="group">Group</option>
+                            <label class="form-label" for="booking-paid">Payment status</label>
+                            <select class="form-select" id="booking-paid" name="paid">
+                                    <option value="yes" {% if booking.payment_status == 'paid' or (not booking.payment_status and booking.paid) %}selected{% endif %}>Paid</option>
+                                    <option value="no" {% if booking.payment_status == 'not_paid' or (not booking.payment_status and not booking.paid) %}selected{% endif %}>Not Paid</option>
+                                    <option value="group" {% if booking.payment_status == 'group' %}selected{% endif %}>Groupon Voucher</option>
                             </select>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Location</label>
-                        <input class="form-control" type="text" name="location" value="{{ booking.location }}" placeholder="e.g. Brighton Clinic">
+                        <label class="form-label" for="booking-location">Location</label>
+                        <input class="form-control" id="booking-location" type="text" name="location" value="{{ booking.location }}" placeholder="e.g. Brighton Clinic">
                     </div>
 
                     <div class="d-flex gap-2">

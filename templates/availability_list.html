@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Availability{% endblock %}
+
+{% block content %}
+<h1>Availability</h1>
+<table class="table">
+    <thead><tr><th>Staff</th><th>Availability</th><th></th></tr></thead>
+    <tbody>
+        {% for s in staff %}
+        <tr>
+            <td><a href="{{ url_for('staff_profile', staff_id=s.id) }}">{{ s.name }}</a></td>
+            <td>
+                {% for a in s.availabilities|sort(attribute='day_of_week') %}
+                    <div>{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][a.day_of_week] }}: {{ a.start_time.strftime('%H:%M') }}–{{ a.end_time.strftime('%H:%M') }}</div>
+                {% else %}
+                    <div>No availability set</div>
+                {% endfor %}
+            </td>
+            <td><a class="btn btn-sm btn-primary" href="{{ url_for('edit_availability', staff_id=s.id) }}">Edit</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

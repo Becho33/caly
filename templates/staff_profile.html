@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ staff.name }}{% endblock %}
+
+{% block content %}
+<h1>{{ staff.name }}</h1>
+<p>Pay rate: 50p per appointment minute</p>
+
+<div class="row">
+    <div class="col-md-6">
+        <h3>Current Week / Shifts</h3>
+        <table class="table">
+            <thead><tr><th>Date</th><th>Start</th><th>End</th><th>Notes</th></tr></thead>
+            <tbody>
+                {% for sh in shifts %}
+                <tr>
+                    <td>{{ sh.date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ sh.start_time.strftime('%H:%M') }}</td>
+                    <td>{{ sh.end_time.strftime('%H:%M') }}</td>
+                    <td>{{ sh.notes }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4">No shifts</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="col-md-6">
+        <h3>Payments</h3>
+        {% if session.get('pay_settings_unlocked') %}
+        <table class="table">
+            <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Note</th><th></th></tr></thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td>{{ p.payment_date.strftime('%Y-%m-%d') }}</td>
+                    <td>£{{ '%.2f'|format(p.amount) }}</td>
+                    <td>{{ p.payment_method }}</td>
+                    <td>{{ p.notes }}</td>
+                    <td>
+                        <form method="post" action="{{ url_for('delete_payment', staff_id=staff.id, payment_id=p.id) }}" style="display:inline" onsubmit="return confirm('Delete this payment record?');">
+                            <button class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">No payments</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h4>Record Payment</h4>
+        <form method="post" action="{{ url_for('add_payment', staff_id=staff.id) }}">
+            <div class="mb-2">
+                <label class="form-label" for="payment-amount">Amount</label>
+                <input class="form-control" id="payment-amount" type="number" min="0.01" step="0.01" name="amount" required>
+            </div>
+            <div class="mb-2">
+                <label class="form-label" for="payment-date">Date</label>
+                <input class="form-control" id="payment-date" type="date" name="payment_date">
+            </div>
+            <div class="mb-2">
+                <label class="form-label" for="payment-method">Method</label>
+                <input class="form-control" id="payment-method" name="payment_method">
+            </div>
+            <div class="mb-2">
+                <label class="form-label" for="payment-notes">Note</label>
+                <input class="form-control" id="payment-notes" name="notes">
+            </div>
+            <button class="btn btn-primary" type="submit">Record</button>
+        </form>
+
+        <hr/>
+        <h4>Summary</h4>
+        <p>Appointment hours: {{ '%.2f'|format(hours) }}</p>
+        <p>Earned: £{{ '%.2f'|format(earned) }}</p>
+        <p>Paid: £{{ '%.2f'|format(paid) }}</p>
+        <p>Outstanding: £{{ '%.2f'|format(outstanding) }}</p>
+        {% else %}
+        <p class="text-muted">Payment records and totals are password protected.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

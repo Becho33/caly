@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Availability{% endblock %}
+
+{% block content %}
+<h1>Edit availability for {{ staff.name }}</h1>
+<form method="post">
+    <table class="table">
+        <thead><tr><th>Day</th><th>Start</th><th>End</th></tr></thead>
+        <tbody>
+            {% for d in range(7) %}
+            <tr>
+                <td>{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }}</td>
+                <td><label class="visually-hidden" for="start-{{ d }}">{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }} start</label><input class="form-control" id="start-{{ d }}" type="time" name="start_{{ d }}" value="{{ existing[d].start_time.strftime('%H:%M') if existing.get(d) else '' }}"></td>
+                <td><label class="visually-hidden" for="end-{{ d }}">{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }} end</label><input class="form-control" id="end-{{ d }}" type="time" name="end_{{ d }}" value="{{ existing[d].end_time.strftime('%H:%M') if existing.get(d) else '' }}"></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a class="btn btn-secondary" href="{{ url_for('availability_list') }}">Cancel</a>
+</form>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block title %}Staff{% endblock %}
+
+{% block content %}
+<h1>Staff</h1>
+<p><a class="btn btn-primary" href="{{ url_for('add_staff') }}">Add Staff</a></p>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Pay Rate</th>
+            <th>Active</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in staff %}
+        <tr>
+            <td><a href="{{ url_for('staff_profile', staff_id=s.id) }}">{{ s.name }}</a></td>
+            <td>50p/min</td>
+            <td>{{ 'Yes' if s.active else 'No' }}</td>
+            <td>
+                <a class="btn btn-sm btn-secondary" href="{{ url_for('edit_staff', staff_id=s.id) }}">Edit</a>
+                <form class="d-inline" method="post" action="{{ url_for('toggle_staff_active', staff_id=s.id) }}">
+                    <button class="btn btn-sm btn-warning" type="submit">{{ 'Deactivate' if s.active else 'Activate' }}</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

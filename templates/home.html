@@ -8,13 +8,12 @@
     <div class="hero-content">
         <span class="hero-badge">Booking Dashboard</span>
         <h1>Kushu booking appointments.</h1>
-        <p class="lead">Keep your appointments organised in one calm place.</p>
-        <p class="lead">Manage bookings, rooms, and client details quickly with a simple, polished workflow.</p>
         <p class="hero-quote">“{{ quote }}”</p>
 
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
             <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4">Open Calendar</a>
             <a href="{{ url_for('add_booking') }}" class="btn btn-outline-secondary btn-lg px-4">Add Booking</a>
+            <a href="{{ url_for('instructions') }}" class="btn btn-outline-info btn-lg px-4">Instructions</a>
         </div>
     </div>
 </div>

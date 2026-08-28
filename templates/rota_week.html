@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Weekly Rota{% endblock %}
+
+{% block content %}
+<h1>Weekly Rota</h1>
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="btn btn-outline-secondary" href="{{ url_for('rota_week', date=previous_week) }}">← Previous Week</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('rota_week') }}">Current Week</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('rota_week', date=next_week) }}">Next Week →</a>
+    <a class="btn btn-primary" href="{{ url_for('add_shift') }}">Add Shift</a>
+    <form method="post" action="{{ url_for('rota_copy_week') }}" onsubmit="return confirm('Copy shifts from the previous week?');">
+        <input type="hidden" name="date" value="{{ days[0].strftime('%Y-%m-%d') }}">
+        <button class="btn btn-outline-secondary">Copy Previous Week</button>
+    </form>
+</div>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Staff</th>
+            {% for d in days %}
+            <th>{{ d.strftime('%a %d %b') }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in staff %}
+        <tr>
+            <td>{{ s.name }}</td>
+            {% for d in days %}
+            <td>
+                {% for sh in shifts_by_staff.get(s.id, []) %}
+                    {% if sh.date == d %}
+                        <div class="border p-1 mb-1">
+                            <div><strong>{{ sh.start_time.strftime('%H:%M') }}–{{ sh.end_time.strftime('%H:%M') }}</strong></div>
+                            <div>{{ sh.notes }}</div>
+                            <div><a href="{{ url_for('edit_shift', shift_id=sh.id) }}">Edit</a></div>
+                            {% if bookings_by_shift and bookings_by_shift.get(sh.id) %}
+                                <div class="mt-1">
+                                    <small>Bookings:</small>
+                                    <ul>
+                                    {% for b in bookings_by_shift[sh.id] %}
+                                        <li>{{ b.start_time.strftime('%H:%M') }} — {{ b.customer_name }}
+                                            <form class="d-inline" method="post" action="{{ url_for('assign_booking', booking_id=b.id, staff_id=s.id) }}"><button class="btn btn-sm btn-link p-0" type="submit">Assign</button></form>
+                                        </li>
+                                    {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Coverage</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Time</th>
+            {% for d in days %}<th>{{ d.strftime('%a') }}</th>{% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for hour in range(6,22) %}
+        <tr>
+            <td>{{ '%02d:00'|format(hour) }}</td>
+            {% for d in days %}
+            {% set count = coverage[d][hour] %}
+            <td>
+                {% if count >= min_required %}
+                    <span class="badge bg-success">{{ count }}</span>
+                {% elif count > 0 %}
+                    <span class="badge bg-warning">{{ count }}</span>
+                {% else %}
+                    <span class="badge bg-danger">{{ count }}</span>
+                {% endif %}
+                {% if bookings_by_day_hour and bookings_by_day_hour.get(d) %}
+                    {% set b = bookings_by_day_hour[d][hour] %}
+                    {% if b > 0 %}
+                        <div><small>Bookings: {{ b }}</small></div>
+                    {% endif %}
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Staffing Gaps</h3>
+{% for d in days %}
+    <h5>{{ d.strftime('%A %d %b') }}</h5>
+    {% if gaps and gaps.get(d) and gaps.get(d)|length > 0 %}
+        <ul>
+        {% for g in gaps[d] %}
+            <li>{{ '%02d:00'|format(g[0]) }}–{{ '%02d:00'|format(g[1]) }} — {{ g[2] }} staff (need {{ min_required }})</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p><span class="text-success">Good coverage</span></p>
+    {% endif %}
+{% endfor %}
+
+{% endblock %}
