@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 
 # Database setup
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bookings.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///details.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Secret key for session (development). You can override with env var.
 # Secret key for session (development). You can override with env var.

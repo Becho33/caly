@@ -28,4 +28,4 @@ flask db upgrade
 Notes:
 - `FLASK_APP` must point to `app.py` (or set via `.flaskenv`).
 - If Alembic complains about autogenerate, inspect the generated migration file before applying.
-- This project uses SQLite by default (`sqlite:///bookings.db`). Back up your DB before running migrations in production.
+- This project uses SQLite by default (`sqlite:///details.db`). Back up your DB before running migrations in production.
