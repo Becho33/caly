@@ -67,7 +67,7 @@
                         </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                            <a class="nav-link" id="logout-link" href="{{ url_for('logout') }}">Logout</a>
                         </li>
                     {% else %}
                         <li class="nav-item">
@@ -100,6 +100,38 @@
 
     <!-- FullCalendar JS -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
+    <script>
+    (function () {
+        const windowKey = 'kushu_active_window';
+        const isLoggedIn = {{ 'true' if session.get('logged_in') else 'false' }};
+
+        if (isLoggedIn && sessionStorage.getItem(windowKey) !== 'active') {
+            fetch('{{ url_for('logout_window') }}', {
+                method: 'POST',
+                credentials: 'same-origin',
+                keepalive: true
+            }).finally(function () {
+                window.location.replace('{{ url_for('login') }}');
+            });
+            return;
+        }
+
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function () {
+                sessionStorage.setItem(windowKey, 'active');
+            });
+        }
+
+        const logoutLink = document.getElementById('logout-link');
+        if (logoutLink) {
+            logoutLink.addEventListener('click', function () {
+                sessionStorage.removeItem(windowKey);
+            });
+        }
+    })();
+    </script>
 
     {% block scripts %}{% endblock %}
 

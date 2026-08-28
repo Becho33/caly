@@ -274,6 +274,15 @@ def logout():
     return redirect(url_for('home'))
 
 
+@app.route('/logout-window', methods=['POST'])
+def logout_window():
+    """Clear sensitive session state when a previous browser window is reopened."""
+    session.pop('logged_in', None)
+    session.pop('personal_details_unlocked', None)
+    session.pop('pay_settings_unlocked', None)
+    return ('', 204)
+
+
 @app.route('/staff-log', methods=['GET', 'POST'])
 def staff_log():
     if request.method == 'POST':
