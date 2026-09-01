@@ -175,6 +175,30 @@ main.container {
     background-color: #236f6c;
 }
 
+.schedule-table-wrap {
+    border: 1px solid rgba(25, 77, 82, 0.12);
+    border-radius: 1rem;
+    background: #fff;
+}
+
+.schedule-table {
+    min-width: 920px;
+}
+
+.schedule-table th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #f2fbfa;
+}
+
+.schedule-time {
+    display: inline-block;
+    white-space: nowrap;
+    color: #176168;
+    font-weight: 650;
+}
+
 .btn,
 .card,
 .form-control,

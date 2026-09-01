@@ -18,7 +18,7 @@
         {% for s in staff %}
         <tr>
             <td><a href="{{ url_for('staff_profile', staff_id=s.id) }}">{{ s.name }}</a></td>
-            <td>50p/min</td>
+            <td>£30.00/hour</td>
             <td>{{ 'Yes' if s.active else 'No' }}</td>
             <td>
                 <a class="btn btn-sm btn-secondary" href="{{ url_for('edit_staff', staff_id=s.id) }}">Edit</a>

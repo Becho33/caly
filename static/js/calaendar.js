@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         setText('bd-customer', props.customer_name || ev.title || '-');
         setText('bd-phone', props.phone || '-');
-        setText('bd-room', props.room || '-');
+        setText('bd-staff', props.staff || 'Not assigned yet');
         setText('bd-location', props.location || '-');
         setText('bd-start', ev.start ? ev.start.toLocaleString() : '-');
         setText('bd-end', ev.end ? ev.end.toLocaleString() : '-');
@@ -59,8 +59,8 @@ document.addEventListener('DOMContentLoaded', function () {
         bookingModal.show();
     }
 
-    // helper: map therapist/room names to fixed colors
-    function getColorForRoom(name) {
+    // helper: map staff names to fixed colors
+    function getColorForStaff(name) {
         var map = {
             'Jules': '#FF6B6B',
             'Aly': '#6BCB77',
@@ -103,10 +103,10 @@ document.addEventListener('DOMContentLoaded', function () {
             showBookingModal(info.event);
         },
 
-        // style events by therapist/room name
+        // style events by assigned staff member
         eventDidMount: function(info) {
-            var room = info.event.extendedProps.room || '';
-            info.el.style.backgroundColor = getColorForRoom(room);
+            var staff = info.event.extendedProps.staff || 'Not assigned yet';
+            info.el.style.backgroundColor = getColorForStaff(staff);
             info.el.style.color = '#ffffff';
             info.el.style.border = info.event.extendedProps.paid === false ? '2px solid red' : '1px solid #333';
 

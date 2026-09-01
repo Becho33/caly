@@ -4,13 +4,17 @@ from functools import wraps
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from sqlalchemy import inspect, text
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
 # Database setup
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///details.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DATABASE_URL',
+    'sqlite:///details.db',
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Secret key for session (development). You can override with env var.
 # Secret key for session (development). You can override with env var.
@@ -24,7 +28,8 @@ STAFF_LOG_PASSWORD = os.environ.get('STAFF_LOG_PASSWORD', 'adminrus')
 
 # Default hourly rate used for estimated weekly earnings.
 HOURLY_RATE = float(os.environ.get('HOURLY_RATE', '30'))
-# Staff are paid for assigned appointment time at a fixed per-minute rate.
+# Staff are paid £30 per appointment hour. Calculations use the equivalent
+# per-minute value so appointments of any length are handled accurately.
 APPOINTMENT_RATE_PER_MINUTE = 0.50
 # Minimum required staff for coverage checks
 MIN_REQUIRED_STAFF = int(os.environ.get('MIN_REQUIRED_STAFF', '2'))
@@ -50,6 +55,19 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 
+@event.listens_for(Engine, 'connect')
+def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    """Make SQLite enforce the foreign keys declared by the models."""
+    del connection_record
+    if dbapi_connection.__class__.__module__.split('.')[0] != 'sqlite3':
+        return
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute('PRAGMA foreign_keys=ON')
+    finally:
+        cursor.close()
+
+
 # Database Model
 class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -63,7 +81,8 @@ class Booking(db.Model):
     paid = db.Column(db.Boolean)
     payment_status = db.Column(db.String(20), default='not_paid')
 
-    room = db.Column(db.String(20))  # NEW FIELD
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff.id', ondelete='SET NULL'))
+    staff = db.relationship('Staff', foreign_keys=[staff_id])
     location = db.Column(db.String(100))  # NEW FIELD
 
 
@@ -310,7 +329,7 @@ def staff_log():
         total_owed = 0
 
         for booking in bookings:
-            therapist = booking.room or 'Not assigned yet'
+            therapist = booking.staff.name if booking.staff else 'Not assigned yet'
             if therapist not in therapist_stats:
                 therapist_stats[therapist] = {'hours': 0, 'earned': 0, 'paid': 0, 'owed': 0}
 
@@ -368,7 +387,7 @@ def calendar():
 
         booking_date = booking.start_time.date()
         if start_of_week <= booking_date <= end_of_week:
-            therapist = booking.room or 'Unassigned'
+            therapist = booking.staff.name if booking.staff else 'Unassigned'
             if therapist not in weekly_stats:
                 weekly_stats[therapist] = {'minutes': 0, 'appointments': 0}
 
@@ -423,7 +442,6 @@ def calendar():
         monthly_appointments=monthly_appointments,
         average_weekly_hours=average_weekly_hours,
         hourly_rate=APPOINTMENT_RATE_PER_MINUTE * 60,
-        per_minute_rate=APPOINTMENT_RATE_PER_MINUTE
     )
 
 
@@ -439,7 +457,7 @@ def add_booking():
         start_time_str = form.get("start_time", "").strip()
         duration_str = form.get("duration", "").strip()
         paid_value = form.get("paid", "no")
-        room = form.get("room", "Not assigned yet").strip()
+        staff_id = form.get("staff_id", "").strip()
         location = form.get("location", "").strip()
 
         if not name or not phone or not start_time_str or not duration_str:
@@ -458,6 +476,7 @@ def add_booking():
         payment_status = {'yes': 'paid', 'group': 'group'}.get(paid_value, 'not_paid')
         paid = payment_status in ('paid', 'group')
 
+        assigned_staff = db.session.get(Staff, int(staff_id)) if staff_id.isdigit() else None
         booking = Booking(
             customer_name=name,
             phone=phone,
@@ -465,7 +484,7 @@ def add_booking():
             duration=duration,
             paid=paid,
             payment_status=payment_status,
-            room=room,
+            staff=assigned_staff,
             location=location
         )
 
@@ -512,7 +531,8 @@ def edit_booking(booking_id):
         start_time_str = form.get("start_time", "").strip()
         duration_str = form.get("duration", "").strip()
         paid_value = form.get("paid", "no")
-        booking.room = (form.get("room") or booking.room or "Not assigned yet").strip()
+        staff_id = form.get("staff_id", "").strip()
+        booking.staff = db.session.get(Staff, int(staff_id)) if staff_id.isdigit() else None
         booking.location = (form.get("location") or booking.location or "").strip()
 
         if not booking.customer_name or not booking.phone or not start_time_str or not duration_str:
@@ -570,14 +590,14 @@ def events():
         }.get(payment_status, 'NOT PAID')
 
         events_list.append({
-            "title": f"{booking.room} | {booking.customer_name} | {booking.location} | {booking.duration} mins | {payment_label}",
+            "title": f"{booking.staff.name if booking.staff else 'Not assigned yet'} | {booking.customer_name} | {booking.location} | {booking.duration} mins | {payment_label}",
             "id": booking.id,
             "start": booking.start_time.isoformat(),
             "end": end_time.isoformat(),
 
             "extendedProps": {
                 "customer_name": booking.customer_name,
-                "room": booking.room,
+                "staff": booking.staff.name if booking.staff else None,
                 "location": booking.location,
                 "phone": booking.phone if session.get('personal_details_unlocked') else mask_personal_detail(booking.phone),
                 "paid": booking.paid,
@@ -686,14 +706,18 @@ def staff_profile(staff_id):
 
     # Payroll is based on appointment minutes assigned to this staff member,
     # not the length of their rota shifts.
-    assigned_bookings = Booking.query.filter_by(room=s.name).all()
+    assigned_bookings = Booking.query.filter_by(staff_id=s.id).all()
     total_minutes, earned = _appointment_pay_for_staff(s, assigned_bookings)
     hours = total_minutes / 60.0
 
     total_paid = sum(p.amount for p in payments)
     outstanding = earned - total_paid
 
-    return render_template('staff_profile.html', staff=s, shifts=shifts, payments=payments, hours=hours, earned=earned, paid=total_paid, outstanding=outstanding)
+    return render_template(
+        'staff_profile.html', staff=s, shifts=shifts, payments=payments,
+        hours=hours, earned=earned, paid=total_paid, outstanding=outstanding,
+        appointment_hourly_rate=APPOINTMENT_RATE_PER_MINUTE * 60,
+    )
 
 
 def _appointment_pay_for_staff(staff, bookings):
@@ -774,7 +798,16 @@ def start_of_week_for(date_obj):
 @login_required
 def availability_list():
     staff_members = Staff.query.order_by(Staff.name).all()
-    return render_template('availability_list.html', staff=staff_members)
+    availability_by_staff = {
+        staff.id: {availability.day_of_week: availability for availability in staff.availabilities}
+        for staff in staff_members
+    }
+    return render_template(
+        'availability_list.html',
+        staff=staff_members,
+        days=('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'),
+        availability_by_staff=availability_by_staff,
+    )
 
 
 @app.route('/availability/edit/<int:staff_id>', methods=['GET', 'POST'])
@@ -1059,7 +1092,9 @@ def rota_week():
     days = [sow + timedelta(days=i) for i in range(7)]
 
     staff_members = Staff.query.order_by(Staff.name).all()
-    shifts = StaffShift.query.filter(StaffShift.date >= days[0], StaffShift.date <= days[-1]).all()
+    shifts = StaffShift.query.filter(
+        StaffShift.date >= days[0], StaffShift.date <= days[-1]
+    ).order_by(StaffShift.date, StaffShift.start_time).all()
 
     # organize shifts by staff and date
     shifts_by_staff = {s.id: [] for s in staff_members}
@@ -1086,7 +1121,10 @@ def rota_week():
         coverage[d] = day_cov
 
     # bookings for the week
-    bookings = Booking.query.filter(Booking.start_time >= datetime.combine(days[0], datetime.min.time()), Booking.start_time <= datetime.combine(days[-1], datetime.max.time())).all()
+    bookings = Booking.query.filter(
+        Booking.start_time >= datetime.combine(days[0], datetime.min.time()),
+        Booking.start_time <= datetime.combine(days[-1], datetime.max.time()),
+    ).order_by(Booking.start_time).all()
 
     # bookings per hour for the week
     bookings_by_day_hour = {d: {h: 0 for h in range(6, 22)} for d in days}
@@ -1107,25 +1145,25 @@ def rota_week():
         except Exception:
             continue
 
-    # associate bookings to shifts where possible
+    # Associate an appointment only with the shift belonging to its assigned
+    # staff member. Previously, the first overlapping shift won, which could
+    # display a customer beneath the wrong person.
     bookings_by_shift = {}
     unassigned_bookings = []
     for b in bookings:
-        assigned = False
-        if not b.start_time:
+        if not b.start_time or not b.staff_id:
             unassigned_bookings.append(b)
             continue
-        for sh in shifts:
-            if sh.date != b.start_time.date():
-                continue
-            try:
-                if sh.start_time <= b.start_time.time() < sh.end_time:
-                    bookings_by_shift.setdefault(sh.id, []).append(b)
-                    assigned = True
-                    break
-            except Exception:
-                continue
-        if not assigned:
+
+        matching_shift = next((
+            shift for shift in shifts
+            if shift.staff_id == b.staff_id
+            and shift.date == b.start_time.date()
+            and shift.start_time <= b.start_time.time() < shift.end_time
+        ), None)
+        if matching_shift:
+            bookings_by_shift.setdefault(matching_shift.id, []).append(b)
+        else:
             unassigned_bookings.append(b)
 
     # gap detection: consecutive hours where coverage < MIN_REQUIRED_STAFF
@@ -1202,8 +1240,7 @@ def rota_copy_week():
 def assign_booking(booking_id, staff_id):
     b = Booking.query.get_or_404(booking_id)
     s = Staff.query.get_or_404(staff_id)
-    # For simplicity store staff name in booking.room
-    b.room = s.name
+    b.staff_id = s.id
     db.session.commit()
     flash('Booking assigned to ' + s.name, 'success')
     return redirect(request.referrer or url_for('rota_week'))
@@ -1233,7 +1270,7 @@ def payments_dashboard():
 
     for s in staff_members:
         # Payroll is based on assigned appointment minutes in the date range.
-        q = Booking.query.filter_by(room=s.name)
+        q = Booking.query.filter_by(staff_id=s.id)
         if start:
             q = q.filter(Booking.start_time >= datetime.combine(start, datetime.min.time()))
         if end:
@@ -1261,17 +1298,6 @@ def payments_dashboard():
 
     return render_template('payments_dashboard.html', results=results, totals=totals, start=start, end=end)
 
-
-
-# Create database
-with app.app_context():
-    db.create_all()
-    booking_columns = {column['name'] for column in inspect(db.engine).get_columns('booking')}
-    if 'payment_status' not in booking_columns:
-        db.session.execute(text("ALTER TABLE booking ADD COLUMN payment_status VARCHAR(20) DEFAULT 'not_paid'"))
-        db.session.execute(text("UPDATE booking SET payment_status = CASE WHEN paid = 1 THEN 'paid' ELSE 'not_paid' END"))
-    db.session.execute(text("UPDATE booking SET paid = 1 WHERE payment_status = 'group'"))
-    db.session.commit()
 
 
 if __name__ == "__main__":

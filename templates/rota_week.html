@@ -3,7 +3,8 @@
 {% block title %}Weekly Rota{% endblock %}
 
 {% block content %}
-<h1>Weekly Rota</h1>
+<h1 class="mb-1">Clinic Rota</h1>
+<p class="text-muted">Staff attendance, assigned customer appointments, and clinic coverage.</p>
 <div class="d-flex flex-wrap gap-2 mb-3">
     <a class="btn btn-outline-secondary" href="{{ url_for('rota_week', date=previous_week) }}">← Previous Week</a>
     <a class="btn btn-outline-secondary" href="{{ url_for('rota_week') }}">Current Week</a>
@@ -14,7 +15,8 @@
         <button class="btn btn-outline-secondary">Copy Previous Week</button>
     </form>
 </div>
-<table class="table table-bordered">
+<div class="table-responsive schedule-table-wrap">
+<table class="table table-bordered align-middle schedule-table mb-0">
     <thead>
         <tr>
             <th>Staff</th>
@@ -40,8 +42,8 @@
                                     <small>Bookings:</small>
                                     <ul>
                                     {% for b in bookings_by_shift[sh.id] %}
-                                        <li>{{ b.start_time.strftime('%H:%M') }} — {{ b.customer_name }}
-                                            <form class="d-inline" method="post" action="{{ url_for('assign_booking', booking_id=b.id, staff_id=s.id) }}"><button class="btn btn-sm btn-link p-0" type="submit">Assign</button></form>
+                                        <li>
+                                            <a href="{{ url_for('edit_booking', booking_id=b.id) }}">{{ b.start_time.strftime('%H:%M') }} — {{ b.customer_name }}</a>
                                         </li>
                                     {% endfor %}
                                     </ul>
@@ -56,8 +58,36 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 
-<h3>Coverage</h3>
+<section class="card mt-4">
+    <div class="card-body">
+        <h2 class="h4">Appointments needing attention</h2>
+        <p class="text-muted">These appointments have no staff member assigned, or fall outside the assigned person’s clinic shift.</p>
+        {% if unassigned_bookings %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>Date</th><th>Time</th><th>Customer</th><th>Assigned staff</th><th></th></tr></thead>
+                <tbody>
+                {% for booking in unassigned_bookings %}
+                    <tr>
+                        <td>{{ booking.start_time.strftime('%a %d %b') if booking.start_time else 'No date' }}</td>
+                        <td>{{ booking.start_time.strftime('%H:%M') if booking.start_time else '—' }}</td>
+                        <td>{{ booking.customer_name or 'Unnamed customer' }}</td>
+                        <td>{{ booking.staff.name if booking.staff else 'Not assigned yet' }}</td>
+                        <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit_booking', booking_id=booking.id) }}">Review</a></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-success mb-0">Every appointment is covered by the assigned staff member’s shift.</p>
+        {% endif %}
+    </div>
+</section>
+
+<h3 class="mt-4">Coverage</h3>
 <table class="table">
     <thead>
         <tr>

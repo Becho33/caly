@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>{{ staff.name }}</h1>
-<p>Pay rate: 50p per appointment minute</p>
+<p>Pay rate: £{{ "%.2f"|format(appointment_hourly_rate) }} per appointment hour</p>
 
 <div class="row">
     <div class="col-md-6">

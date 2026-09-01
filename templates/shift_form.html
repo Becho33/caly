@@ -29,13 +29,13 @@
         <label class="form-label" for="shift-rate">Hourly rate override (optional)</label>
         {% if session.get('pay_settings_unlocked') %}
             <input class="form-control" id="shift-rate" type="number" min="0" step="0.01" name="hourly_rate" value="{{ shift.hourly_rate if shift and shift.hourly_rate is not none else '' }}" placeholder="Standard: £30.00/hour">
-            <div class="form-text">Applies only to appointment minutes within this shift. Leave blank to use 50p per minute.</div>
+            <div class="form-text">Applies only to appointments within this shift. Leave blank to use £30.00 per hour.</div>
         {% else %}
             <div class="input-group">
                 <input class="form-control" id="shift-rate" value="********" disabled aria-label="Hourly rate override locked">
                 <a class="btn btn-outline-primary" href="{{ url_for('pay_settings_unlock', next=request.path) }}">Unlock</a>
             </div>
-            <div class="form-text">Password protected. The standard rate is 50p per appointment minute.</div>
+            <div class="form-text">Password protected. The standard rate is £30.00 per appointment hour.</div>
         {% endif %}
     </div>
     <div class="mb-2">

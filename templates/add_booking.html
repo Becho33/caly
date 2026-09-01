@@ -33,11 +33,11 @@
 
                     <div class="row">
                         <div class="mb-3 col-md-6">
-                            <label class="form-label" for="booking-room">Room</label>
-                            <select class="form-select" id="booking-room" name="room" required>
-                                    <option value="Not assigned yet">Not assigned yet</option>
+                            <label class="form-label" for="booking-staff">Assigned staff member</label>
+                            <select class="form-select" id="booking-staff" name="staff_id">
+                                    <option value="">Not assigned yet</option>
                                     {% for s in staff_members %}
-                                        <option value="{{ s.name }}" {% if form_data.get('room') == s.name %}selected{% endif %} title="{{ staff_avail.get(s.id, '') }}">{{ s.name }}{% if staff_avail.get(s.id) %} — {{ staff_avail[s.id][:30] }}{% if staff_avail[s.id]|length > 30 %}...{% endif %}{% endif %}</option>
+                                        <option value="{{ s.id }}" {% if form_data.get('staff_id')|string == s.id|string %}selected{% endif %} title="{{ staff_avail.get(s.id, '') }}">{{ s.name }}{% if staff_avail.get(s.id) %} — {{ staff_avail[s.id][:30] }}{% if staff_avail[s.id]|length > 30 %}...{% endif %}{% endif %}</option>
                                     {% endfor %}
                                 </select>
                         </div>
