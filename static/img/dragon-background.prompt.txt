@@ -1,0 +1,4 @@
+Mode: built-in image_gen, precise-object-edit.
+Source: user-supplied ChatGPT Image Sep 7, 2026, 12_27_51 AM.png.
+
+Use case: precise-object-edit. Edit the provided artwork into a clean website background. Preserve the two red and gold dragons, pillars with their lettering, cherry blossoms, lanterns, temple architecture, sunset, mountains and water, colors and wide composition. Remove ALL central overlay typography (Mind Body Spirit, Book Your Appointment, slogans), the Book Now button, and the four circular service icons and labels and decorative central divider lines. Seamlessly fill those central areas with the underlying dark sky, landscape and water. No new text, buttons, icons or UI. Keep the center dark and uncluttered so real website HTML heading and existing buttons can overlay it. Save the edited image for use in the project.

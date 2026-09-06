@@ -63,6 +63,70 @@ main.container {
     margin-right: auto;
 }
 
+/* Dragon artwork on the landing page, with real navigation controls. */
+body.home-page {
+    background: #140d0e;
+}
+
+.home-page .app-main {
+    display: grid;
+    align-content: center;
+    max-width: none;
+    min-height: calc(100svh - 130px);
+    padding: clamp(3rem, 8vw, 7rem) 1rem;
+    background: linear-gradient(rgba(5, 10, 15, 0.12), rgba(5, 10, 15, 0.25)),
+        url('../img/dragon-background.png') center / cover no-repeat;
+}
+
+.home-page .hero-card {
+    width: 100%;
+    max-width: 660px;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border: 0;
+    background: radial-gradient(ellipse, rgba(8, 15, 21, 0.85), rgba(8, 15, 21, 0.25) 70%, transparent);
+    box-shadow: none;
+    overflow: visible;
+}
+
+.home-page .hero-card::before,
+.home-page .hero-card::after {
+    content: none;
+}
+
+.home-page .hero-card h1 {
+    color: #ffe5b9;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(2.2rem, 4vw, 3.6rem);
+    text-shadow: 0 2px 12px #000;
+}
+
+.home-page .hero-quote {
+    color: #fff1db;
+    text-shadow: 0 2px 6px #000;
+}
+
+.home-page .hero-badge {
+    color: #ffe5b9;
+    background: rgba(35, 12, 12, 0.85);
+    border-color: #bfa06b;
+}
+
+.home-page .hero-card .btn {
+    color: #fff1db !important;
+    background: #540e14 !important;
+    border: 1px solid #d7b47a !important;
+}
+
+.home-page .hero-card .btn:hover {
+    background: #7b1820 !important;
+}
+
+.home-page .hero-card .btn:focus-visible {
+    outline: 3px solid #fff1db;
+    outline-offset: 4px;
+}
+
 /* Login/auth card */
 .auth-card {
     border-radius: 20px;

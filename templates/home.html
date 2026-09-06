@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Home{% endblock %}
+{% block body_class %}home-page{% endblock %}
 
 {% block content %}
 
@@ -10,7 +11,7 @@
         <h1>Kushu booking appointments.</h1>
         <p class="hero-quote">“{{ quote }}”</p>
 
-        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
+        <div class="d-grid gap-2 d-sm-flex flex-sm-wrap justify-content-sm-center mt-4">
             <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4">Open Calendar</a>
             <a href="{{ url_for('add_booking') }}" class="btn btn-outline-secondary btn-lg px-4">Add Booking</a>
             <a href="{{ url_for('instructions') }}" class="btn btn-outline-info btn-lg px-4">Instructions</a>
