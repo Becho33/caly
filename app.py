@@ -1,5 +1,9 @@
-from flask import Flask, render_template, request, redirect, jsonify, session, url_for, flash
+from calendar import monthrange
+from flask import abort, Flask, render_template, request, redirect, jsonify, session, url_for, flash
 import os
+import hashlib
+import secrets
+from pathlib import Path
 from functools import wraps
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
@@ -9,6 +13,12 @@ from sqlalchemy.engine import Engine
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
+def load_contract():
+    # Read once per request: display, version and saved snapshot share these bytes.
+    text = Path(app.root_path, 'templates', 'therapist_agreement.html').read_text(encoding='utf-8')
+    return text, hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
 
 # Database setup
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
@@ -103,9 +113,22 @@ class Staff(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     availabilities = db.relationship('StaffAvailability', backref='staff', cascade='all, delete-orphan')
+    dated_availabilities = db.relationship('StaffDateAvailability', backref='staff', cascade='all, delete-orphan')
     shifts = db.relationship('StaffShift', backref='staff', cascade='all, delete-orphan')
     unavailabilities = db.relationship('StaffUnavailability', backref='staff', cascade='all, delete-orphan')
     payments = db.relationship('StaffPayment', backref='staff', cascade='all, delete-orphan')
+
+
+class StaffContractAcceptance(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=False)
+    staff_name = db.Column(db.String(120), nullable=False)
+    contract_version = db.Column(db.String(64), nullable=False)
+    contract_text = db.Column(db.Text, nullable=False)
+    signature_name = db.Column(db.String(120))
+    signed_at = db.Column(db.DateTime)
+    accepted_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('staff_id', 'contract_version'),)
 
 
 class StaffAvailability(db.Model):
@@ -115,6 +138,16 @@ class StaffAvailability(db.Model):
     day_of_week = db.Column(db.Integer, nullable=False)
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
+
+
+class StaffDateAvailability(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    # Empty hours explicitly override the weekly default as unavailable.
+    start_time = db.Column(db.Time)
+    end_time = db.Column(db.Time)
+    __table_args__ = (db.UniqueConstraint('staff_id', 'date'),)
 
 
 class StaffUnavailability(db.Model):
@@ -507,9 +540,13 @@ def _render_booking_form(template_name, **context):
         parts = []
         for a in s.availabilities:
             try:
-                parts.append(f"{days[a.day_of_week]} {a.start_time.strftime('%H:%M')}-{a.end_time.strftime('%H:%M')}")
+                parts.append(f"Weekly default: {days[a.day_of_week]} {a.start_time.strftime('%H:%M')}-{a.end_time.strftime('%H:%M')}")
             except Exception:
                 continue
+        for a in sorted(s.dated_availabilities, key=lambda a: a.date):
+            if a.date >= datetime.now().date():
+                hours = f"{a.start_time.strftime('%H:%M')}-{a.end_time.strftime('%H:%M')}" if a.start_time else 'Not available'
+                parts.append(f"{a.date.strftime('%d %b %Y')} {hours}")
         staff_avail[s.id] = ', '.join(parts) if parts else 'No availability'
 
     return render_template(template_name, staff_members=staff_members, staff_avail=staff_avail, **context)
@@ -666,8 +703,8 @@ def edit_staff(staff_id):
     if request.method == 'POST':
         s.name = request.form.get('name', s.name).strip()
         if session.get('personal_details_unlocked'):
-            s.email = request.form.get('email', s.email).strip()
-            s.phone = request.form.get('phone', s.phone).strip()
+            s.email = (request.form.get('email', s.email) or '').strip()
+            s.phone = (request.form.get('phone', s.phone) or '').strip()
         if session.get('pay_settings_unlocked') and 'hourly_rate' in request.form:
             rate = request.form.get('hourly_rate', '')
             try:
@@ -713,11 +750,52 @@ def staff_profile(staff_id):
     total_paid = sum(p.amount for p in payments)
     outstanding = earned - total_paid
 
+    contract_text, contract_version = load_contract()
+    acceptance = StaffContractAcceptance.query.filter_by(
+        staff_id=s.id, contract_version=contract_version,
+    ).first()
+    if 'contract_csrf' not in session:
+        session['contract_csrf'] = secrets.token_hex(32)
     return render_template(
-        'staff_profile.html', staff=s, shifts=shifts, payments=payments,
+        'staff_profile.html', contract_html=contract_text, contract_acceptance=acceptance, contract_version=contract_version, staff=s, shifts=shifts, payments=payments,
         hours=hours, earned=earned, paid=total_paid, outstanding=outstanding,
         appointment_hourly_rate=APPOINTMENT_RATE_PER_MINUTE * 60,
     )
+
+
+@app.route('/staff/<int:staff_id>/contract/accept', methods=['POST'])
+@login_required
+def accept_staff_contract(staff_id):
+    staff = Staff.query.get_or_404(staff_id)
+    contract_text, contract_version = load_contract()
+    token = session.get('contract_csrf')
+    if not token or not secrets.compare_digest(token, request.form.get('csrf_token', '')):
+        abort(400, description='Please reopen the staff profile and try again.')
+    if request.form.get('contract_version') != contract_version:
+        abort(400, description='The agreement has changed. Please read it again.')
+    if request.form.get('agree') != 'yes':
+        flash('Please tick I agree before accepting the contract.', 'warning')
+        return redirect(url_for('staff_profile', staff_id=staff.id))
+    signature_name = request.form.get('signature_name', '').strip()
+    if not signature_name or len(signature_name) > 120:
+        flash('Please type your full name to sign (up to 120 characters).', 'warning')
+        return redirect(url_for('staff_profile', staff_id=staff.id))
+    existing = StaffContractAcceptance.query.filter_by(
+        staff_id=staff.id, contract_version=contract_version,
+    ).first()
+    if not existing:
+        db.session.add(StaffContractAcceptance(
+            staff_id=staff.id, staff_name=staff.name,
+            signature_name=signature_name, signed_at=datetime.utcnow(),
+            contract_version=contract_version, contract_text=contract_text,
+        ))
+        db.session.commit()
+    elif not existing.signature_name:
+        existing.signature_name = signature_name
+        existing.signed_at = datetime.utcnow()
+        db.session.commit()
+    flash('Contract acceptance saved.', 'success')
+    return redirect(url_for('staff_profile', staff_id=staff.id))
 
 
 def _appointment_pay_for_staff(staff, bookings):
@@ -794,19 +872,30 @@ def start_of_week_for(date_obj):
     return date_obj - timedelta(days=(date_obj.weekday() + 1) % 7)
 
 
+def availability_month():
+    value = request.form.get('month') if request.method == 'POST' else request.args.get('month')
+    try:
+        month = datetime.strptime(value, '%Y-%m').date() if value else datetime.now().date().replace(day=1)
+    except ValueError:
+        abort(400, description='Invalid month. Use YYYY-MM.')
+    dates = [month + timedelta(days=i) for i in range(monthrange(month.year, month.month)[1])]
+    return month, dates
+
+
+def availability_for_dates(staff, dates):
+    weekly = {a.day_of_week: a for a in staff.availabilities}
+    dated = {a.date: a for a in staff.dated_availabilities}
+    return {day: dated.get(day, weekly.get(day.weekday())) for day in dates}
+
+
 @app.route('/availability')
 @login_required
 def availability_list():
+    month, dates = availability_month()
     staff_members = Staff.query.order_by(Staff.name).all()
-    availability_by_staff = {
-        staff.id: {availability.day_of_week: availability for availability in staff.availabilities}
-        for staff in staff_members
-    }
     return render_template(
-        'availability_list.html',
-        staff=staff_members,
-        days=('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'),
-        availability_by_staff=availability_by_staff,
+        'availability_list.html', staff=staff_members, month=month, dates=dates,
+        availability_by_staff={s.id: availability_for_dates(s, dates) for s in staff_members},
     )
 
 
@@ -814,33 +903,44 @@ def availability_list():
 @login_required
 def edit_availability(staff_id):
     s = Staff.query.get_or_404(staff_id)
+    month, dates = availability_month()
+    existing = availability_for_dates(s, dates)
+    values = {
+        day.isoformat(): (
+            existing[day].start_time.strftime('%H:%M') if existing[day] and existing[day].start_time else '',
+            existing[day].end_time.strftime('%H:%M') if existing[day] and existing[day].end_time else '',
+        ) for day in dates
+    }
+    error = None
     if request.method == 'POST':
-        # remove existing weekly availabilities
-        StaffAvailability.query.filter_by(staff_id=staff_id).delete()
-        db.session.commit()
-
-        # expect fields like start_0,end_0 ... for 0=Mon .. 6=Sun
-        for d in range(7):
-            start_key = f'start_{d}'
-            end_key = f'end_{d}'
-            start_val = request.form.get(start_key, '').strip()
-            end_val = request.form.get(end_key, '').strip()
-            if start_val and end_val:
-                try:
-                    st = datetime.strptime(start_val, '%H:%M').time()
-                    et = datetime.strptime(end_val, '%H:%M').time()
-                    av = StaffAvailability(staff_id=staff_id, day_of_week=d, start_time=st, end_time=et)
-                    db.session.add(av)
-                except Exception:
-                    continue
-
-        db.session.commit()
-        flash('Availability updated', 'success')
-        return redirect(url_for('availability_list'))
-
-    # prepare existing values
-    existing = {a.day_of_week: a for a in s.availabilities}
-    return render_template('availability_form.html', staff=s, existing=existing)
+        records = []
+        for day in dates:
+            key = day.isoformat()
+            start = request.form.get(f'start_{key}', '').strip()
+            end = request.form.get(f'end_{key}', '').strip()
+            values[key] = (start, end)
+            try:
+                if bool(start) != bool(end):
+                    raise ValueError
+                st = datetime.strptime(start, '%H:%M').time() if start else None
+                et = datetime.strptime(end, '%H:%M').time() if end else None
+                if st is not None and et <= st:
+                    raise ValueError
+                records.append(StaffDateAvailability(staff_id=s.id, date=day, start_time=st, end_time=et))
+            except ValueError:
+                error = 'Enter both start and end times, with the end after the start, or leave both blank.'
+        if not error:
+            StaffDateAvailability.query.filter(
+                StaffDateAvailability.staff_id == s.id,
+                StaffDateAvailability.date >= dates[0],
+                StaffDateAvailability.date <= dates[-1],
+            ).delete(synchronize_session=False)
+            db.session.add_all(records)
+            db.session.commit()
+            flash('Availability updated for ' + month.strftime('%B %Y'), 'success')
+            return redirect(url_for('availability_list', month=month.strftime('%Y-%m')))
+    return render_template('availability_form.html', staff=s, month=month, dates=dates,
+                           values=values, error=error), 400 if error else 200
 
 
 def _check_shift_overlaps(date_obj, start_time, end_time, exclude_id=None):
@@ -1068,10 +1168,12 @@ def check_shift_overlap():
         dt = datetime.strptime(date_str, '%Y-%m-%d').date()
         st = datetime.strptime(start, '%H:%M').time()
         et = datetime.strptime(end, '%H:%M').time()
+        if et <= st:
+            raise ValueError
+        exclude_id = int(shift_id) if shift_id else None
     except Exception:
         return jsonify({'error': 'invalid date/time'}), 400
 
-    exclude_id = int(shift_id) if shift_id else None
     blocked, conflicts, suggestions, existing_shifts = _check_shift_overlaps(dt, st, et, exclude_id=exclude_id)
     return jsonify({'blocked': blocked, 'conflicts': conflicts, 'suggestions': suggestions, 'existing': existing_shifts})
 

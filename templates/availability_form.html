@@ -1,23 +1,32 @@
 {% extends 'base.html' %}
-
 {% block title %}Edit Availability{% endblock %}
-
 {% block content %}
 <h1>Edit availability for {{ staff.name }}</h1>
+<form method="get" class="d-flex align-items-end gap-2 mb-3">
+    <div><label for="month" class="form-label">Month</label><input id="month" name="month" type="month" class="form-control" value="{{ month.strftime('%Y-%m') }}" required></div>
+    <button class="btn btn-secondary" type="submit">Show month</button>
+</form>
+<h2>{{ month.strftime('%B %Y') }}</h2>
+<p>Enter hours for each date. Leave both times blank for days you are unavailable. Existing weekly hours are used as defaults until you save this month. Save your changes before switching months.</p>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 <form method="post">
+    <input type="hidden" name="month" value="{{ month.strftime('%Y-%m') }}">
+    <div class="table-responsive">
     <table class="table">
-        <thead><tr><th>Day</th><th>Start</th><th>End</th></tr></thead>
+        <thead><tr><th>Date</th><th>Start</th><th>End</th></tr></thead>
         <tbody>
-            {% for d in range(7) %}
+            {% for day in dates %}
+            {% set key = day.isoformat() %}
             <tr>
-                <td>{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }}</td>
-                <td><label class="visually-hidden" for="start-{{ d }}">{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }} start</label><input class="form-control" id="start-{{ d }}" type="time" name="start_{{ d }}" value="{{ existing[d].start_time.strftime('%H:%M') if existing.get(d) else '' }}"></td>
-                <td><label class="visually-hidden" for="end-{{ d }}">{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }} end</label><input class="form-control" id="end-{{ d }}" type="time" name="end_{{ d }}" value="{{ existing[d].end_time.strftime('%H:%M') if existing.get(d) else '' }}"></td>
+                <th scope="row">{{ day.strftime('%a %d %b') }}</th>
+                <td><label class="visually-hidden" for="start-{{ key }}">{{ day }} start</label><input class="form-control" id="start-{{ key }}" type="time" name="start_{{ key }}" value="{{ values[key][0] }}"></td>
+                <td><label class="visually-hidden" for="end-{{ key }}">{{ day }} end</label><input class="form-control" id="end-{{ key }}" type="time" name="end_{{ key }}" value="{{ values[key][1] }}"></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    <button class="btn btn-primary" type="submit">Save</button>
-    <a class="btn btn-secondary" href="{{ url_for('availability_list') }}">Cancel</a>
+    </div>
+    <button class="btn btn-primary" type="submit">Save month</button>
+    <a class="btn btn-secondary" href="{{ url_for('availability_list', month=month.strftime('%Y-%m')) }}">Cancel</a>
 </form>
 {% endblock %}
