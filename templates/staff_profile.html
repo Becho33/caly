@@ -17,40 +17,6 @@
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#contract-modal">View contract</button>
     </div>
 </section>
-<div class="modal fade" id="contract-modal" tabindex="-1" aria-labelledby="contract-title" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title fs-5" id="contract-title">Contract for {{ staff.name }}</h2>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                {{ contract_html|safe }}
-            </div>
-            <div class="modal-footer d-block">
-                {% if contract_acceptance and contract_acceptance.signature_name %}
-                <p class="mb-2 text-success">Signed by {{ contract_acceptance.signature_name }} on {{ contract_acceptance.signed_at.strftime('%d %b %Y at %H:%M') }} UTC.</p>
-                {% else %}
-                <form method="post" action="{{ url_for('accept_staff_contract', staff_id=staff.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ session['contract_csrf'] }}">
-                    <input type="hidden" name="contract_version" value="{{ contract_version }}">
-                    <div class="mb-3">
-                        <label class="form-label" for="contract-signature">Signature — type your full name</label>
-                        <input class="form-control" type="text" id="contract-signature" name="signature_name" maxlength="120" autocomplete="name" aria-describedby="signature-help" required>
-                        <div id="signature-help" class="form-text">By typing your name and ticking I agree, you are signing this agreement.</div>
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="contract-agree" name="agree" value="yes" required>
-                        <label class="form-check-label" for="contract-agree">I am {{ staff.name }}. I have read and understood this agreement and I agree to its terms.</label>
-                    </div>
-                    <button class="btn btn-primary" type="submit">Sign agreement</button>
-                </form>
-                {% endif %}
-                <button type="button" class="btn btn-secondary mt-2" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="row">
     <div class="col-md-6">
@@ -128,4 +94,45 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block modals %}
+<div class="modal fade" id="contract-modal" tabindex="-1" aria-labelledby="contract-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="contract-title">Contract for {{ staff.name }}</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <article class="contract-document">
+                    {{ contract_html|safe }}
+                </article>
+                <section class="contract-signing mt-4 pt-4 border-top" aria-label="Agreement signature">
+                {% if contract_acceptance and contract_acceptance.signature_name %}
+                <p class="mb-2 text-success">Signed by {{ contract_acceptance.signature_name }} on {{ contract_acceptance.signed_at.strftime('%d %b %Y at %H:%M') }} UTC.</p>
+                {% else %}
+                <form method="post" action="{{ url_for('accept_staff_contract', staff_id=staff.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ session['contract_csrf'] }}">
+                    <input type="hidden" name="contract_version" value="{{ contract_version }}">
+                    <div class="mb-3">
+                        <label class="form-label" for="contract-signature">Signature — type your full name</label>
+                        <input class="form-control" type="text" id="contract-signature" name="signature_name" maxlength="120" autocomplete="name" aria-describedby="signature-help" required>
+                        <div id="signature-help" class="form-text">By typing your name and ticking I agree, you are signing this agreement.</div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="contract-agree" name="agree" value="yes" required>
+                        <label class="form-check-label" for="contract-agree">I am {{ staff.name }}. I have read and understood this agreement and I agree to its terms.</label>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Sign agreement</button>
+                </form>
+                {% endif %}
+                </section>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

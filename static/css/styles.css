@@ -611,6 +611,28 @@ h1 {
     background: #fbfefd;
 }
 
+#contract-modal .modal-body {
+    padding: clamp(1rem, 4vw, 2rem);
+    overscroll-behavior: contain;
+}
+
+.contract-document {
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+.contract-document h2 {
+    font-size: clamp(1.25rem, 3vw, 1.65rem);
+    margin-bottom: 1.5rem;
+}
+
+.contract-document h3 {
+    font-size: 1.05rem;
+    line-height: 1.4;
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+}
+
 #calendar.card {
     min-height: 65vh;
     padding: clamp(0.6rem, 2vw, 1.25rem) !important;
