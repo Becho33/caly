@@ -51,6 +51,13 @@
                         </div>
                     </div>
 
+                    <div class="mb-3" id="voucher-field" {% if form_data.get('paid') != 'group' %}hidden{% endif %}>
+                        <label class="form-label" for="voucher-code">Groupon voucher code (optional)</label>
+                        <input class="form-control{% if voucher_error %} is-invalid{% endif %}" id="voucher-code" name="voucher_code" type="text" value="{{ form_data.get('voucher_code', '') }}" aria-describedby="voucher-help{% if voucher_error %} voucher-error{% endif %}" {% if voucher_error %}aria-invalid="true" autofocus{% endif %}>
+                        <div class="form-text" id="voucher-help">Leave blank if you do not have the code.</div>
+                        {% if voucher_error %}<div class="invalid-feedback" id="voucher-error" role="alert">{{ voucher_error }}</div>{% endif %}
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label" for="booking-location">Location</label>
                         <input class="form-control" id="booking-location" type="text" name="location" value="{{ form_data.get('location', '') }}" placeholder="e.g. Brighton Clinic">
@@ -67,4 +74,19 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const paymentStatus = document.getElementById('booking-paid');
+    const voucherField = document.getElementById('voucher-field');
+    const voucherInput = document.getElementById('voucher-code');
+    function updateVoucherField() {
+        const isGroupon = paymentStatus.value === 'group';
+        voucherField.hidden = !isGroupon;
+        voucherInput.disabled = !isGroupon;
+    }
+    paymentStatus.addEventListener('change', updateVoucherField);
+    updateVoucherField();
+</script>
 {% endblock %}

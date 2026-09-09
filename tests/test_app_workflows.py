@@ -1,5 +1,9 @@
 import os
 import unittest
+import csv
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 from datetime import date, datetime, time
 os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
 from app import (app, db, Staff, Booking, StaffShift, StaffPayment,
@@ -86,6 +90,64 @@ class AppWorkflowsTest(unittest.TestCase):
         self.assertEqual(booking.payment_status, 'group')
         self.assertTrue(self.client.delete(f'/delete-booking/{booking.id}').json['success'])
         self.assertEqual(Booking.query.count(), 0)
+
+    def test_groupon_voucher_csv_and_duplicates(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+                app.config, GROUPON_VOUCHERS_CSV=str(Path(directory) / 'vouchers.csv')):
+            path = Path(app.config['GROUPON_VOUCHERS_CSV'])
+            data = self.booking()
+            data.update(paid='group', voucher_code='  AbC-123  ')
+            self.assertEqual(self.client.post('/add-booking', data=data).status_code, 302)
+            with path.open(newline='') as ledger:
+                rows = list(csv.DictReader(ledger))
+            self.assertEqual([row['voucher_code'] for row in rows], ['AbC-123'])
+            data['voucher_code'] = 'abc-123'
+            response = self.client.post('/add-booking', data=data)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b'Already used', response.data)
+            self.assertIn(b'autofocus', response.data)
+            self.assertIn(b'value="Test customer"', response.data)
+            self.assertEqual(Booking.query.count(), 1)
+            # Deleting a booking must not make a used voucher available again.
+            self.client.delete(f'/delete-booking/{Booking.query.one().id}')
+            self.assertIn(b'Already used', self.client.post('/add-booking', data=data).data)
+            self.assertEqual(Booking.query.count(), 0)
+            data['voucher_code'] = ''
+            self.assertEqual(self.client.post('/add-booking', data=data).status_code, 302)
+            data.update(paid='yes', voucher_code='IGNORE-ME')
+            self.assertEqual(self.client.post('/add-booking', data=data).status_code, 302)
+            with path.open(newline='') as ledger:
+                self.assertEqual(list(csv.DictReader(ledger)), rows)
+
+    def test_voucher_list_opens_as_copyable_csv_text(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+                app.config, GROUPON_VOUCHERS_CSV=str(Path(directory) / 'vouchers.csv')):
+            self.assertIn(b'No voucher codes saved yet.', self.client.get('/groupon-vouchers').data)
+            with open(app.config['GROUPON_VOUCHERS_CSV'], 'w', newline='') as ledger:
+                writer = csv.writer(ledger)
+                writer.writerow(['voucher_code', 'recorded_at'])
+                writer.writerow(['ABC-123', '2026-09-09'])
+                writer.writerow(['CODE,456', '2026-09-09'])
+            response = self.client.get('/groupon-vouchers')
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.mimetype, 'text/plain')
+            self.assertEqual(response.get_data(as_text=True), 'ABC-123,"CODE,456"\r\n')
+            self.assertEqual(response.headers['Cache-Control'], 'no-store')
+            self.client.get('/logout')
+            self.assertEqual(self.client.get('/groupon-vouchers').status_code, 302)
+
+    def test_groupon_failed_save_does_not_consume_code(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+                app.config, GROUPON_VOUCHERS_CSV=str(Path(directory) / 'vouchers.csv')):
+            data = self.booking()
+            data.update(paid='group', voucher_code='RETRY-123')
+            with patch.object(db.session, 'commit', side_effect=OSError('Save failed')):
+                response = self.client.post('/add-booking', data=data)
+            self.assertIn(b'Could not save the voucher code', response.data)
+            self.assertEqual(Booking.query.count(), 0)
+            self.assertEqual(self.client.post('/add-booking', data=data).status_code, 302)
+            with open(app.config['GROUPON_VOUCHERS_CSV'], newline='') as ledger:
+                self.assertEqual(len(list(csv.DictReader(ledger))), 1)
 
     def test_invalid_bookings(self):
         for duration in ['0', '-1', 'abc', '']:

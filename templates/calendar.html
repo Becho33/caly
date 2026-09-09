@@ -4,14 +4,15 @@
 
 {% block content %}
 
-<div class="d-flex align-items-center justify-content-between mb-3">
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
     <div>
         <h1 class="h3 mb-0">Customer Booking Calendar</h1>
         <p class="text-muted small mb-0">View and manage appointments</p>
     </div>
-    <div>
+    <div class="d-flex flex-wrap gap-2">
         <a href="{{ url_for('add_booking') }}" class="btn btn-success">+ Add Booking</a>
-        <button id="waiting-room-btn" class="btn btn-outline-primary ms-2">Waiting Room</button>
+        <a href="{{ url_for('groupon_vouchers') }}" class="btn btn-primary" target="_blank" rel="noopener" aria-label="Download vouchers (opens in a new window)">Download Vouchers</a>
+        <button id="waiting-room-btn" class="btn btn-outline-primary">Waiting Room</button>
     </div>
 </div>
 
@@ -68,6 +69,10 @@
 <div id="calendar" class="card p-3 shadow-sm"></div>
 <div id="calendar-status" class="visually-hidden" role="status" aria-live="polite"></div>
 
+{% endblock %}
+
+{% block modals %}
+<!-- Keep modals outside the animated main element so they sit above the backdrop. -->
 <!-- Booking details modal -->
 <div class="modal fade" id="bookingDetailsModal" tabindex="-1" aria-labelledby="bookingDetailsLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">

@@ -1,6 +1,9 @@
 from calendar import monthrange
 from flask import abort, Flask, render_template, request, redirect, jsonify, session, url_for, flash
 import os
+import csv
+import io
+import fcntl
 import hashlib
 import secrets
 from pathlib import Path
@@ -26,6 +29,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'sqlite:///details.db',
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['GROUPON_VOUCHERS_CSV'] = os.path.join(app.instance_path, 'groupon_vouchers.csv')
 # Secret key for session (development). You can override with env var.
 # Secret key for session (development). You can override with env var.
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key')
@@ -478,7 +482,65 @@ def calendar():
     )
 
 
+@app.route('/groupon-vouchers')
+@login_required
+def groupon_vouchers():
+    codes = []
+    try:
+        with Path(app.config['GROUPON_VOUCHERS_CSV']).open(
+                newline='', encoding='utf-8') as ledger:
+            fcntl.flock(ledger, fcntl.LOCK_SH)
+            codes = [row['voucher_code'] for row in csv.DictReader(ledger)]
+    except FileNotFoundError:
+        pass
+    output = io.StringIO(newline='')
+    if codes:
+        csv.writer(output).writerow(codes)
+    else:
+        output.write('No voucher codes saved yet.')
+    response = app.response_class(output.getvalue(), mimetype='text/plain')
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
 # Add booking page
+def save_booking_with_voucher(booking, code):
+    """Serialize duplicate checks and writes across app workers using a file lock."""
+    if not code:
+        db.session.add(booking)
+        db.session.commit()
+        return True
+
+    path = Path(app.config['GROUPON_VOUCHERS_CSV'])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('a+', newline='', encoding='utf-8') as ledger:
+        fcntl.flock(ledger, fcntl.LOCK_EX)
+        ledger.seek(0)
+        if any(row['voucher_code'].strip().casefold() == code.casefold()
+               for row in csv.DictReader(ledger)):
+            return False
+        ledger.seek(0, os.SEEK_END)
+        original_size = ledger.tell()
+        try:
+            writer = csv.writer(ledger)
+            if original_size == 0:
+                writer.writerow(['voucher_code', 'recorded_at'])
+            writer.writerow([code, datetime.now().isoformat(timespec='seconds')])
+            ledger.flush()
+            os.fsync(ledger.fileno())
+            db.session.add(booking)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            ledger.seek(original_size)
+            ledger.truncate()
+            ledger.flush()
+            os.fsync(ledger.fileno())
+            raise
+    return True
+
+
 @app.route("/add-booking", methods=["GET", "POST"])
 @login_required
 def add_booking():
@@ -521,8 +583,18 @@ def add_booking():
             location=location
         )
 
-        db.session.add(booking)
-        db.session.commit()
+        voucher_code = form.get('voucher_code', '').strip() if paid_value == 'group' else ''
+        try:
+            saved = save_booking_with_voucher(booking, voucher_code)
+        except OSError:
+            app.logger.exception('Unable to save Groupon voucher CSV')
+            return _render_booking_form(
+                "add_booking.html", form_data=form, start_value=start_time_str,
+                voucher_error="Could not save the voucher code. Please try again.")
+        if not saved:
+            return _render_booking_form(
+                "add_booking.html", form_data=form, start_value=start_time_str,
+                voucher_error="Already used. Please check the voucher code.")
 
         return redirect("/calendar")
 
